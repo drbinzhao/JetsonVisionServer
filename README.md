@@ -11,3 +11,5 @@
 8. Configure Auto-Login
 9. Install v4l2-ctl
 10. Conifgure CamerSetup.sh to run at startup
+11. Install V4L2 Utils
+
