@@ -3,19 +3,30 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "CrossHairClass.h"
+#include "VisionServerClass.h"
 #include "pthread.h"
 #include <unistd.h>
 #define INVALID_TARGET -2.0f
 
+
 class DriverCamClass
 {
     public:
+
+    static cv::VideoCapture * m_VideoCap2;
     static cv::Mat m_Img2A;
     static cv::Mat m_Img2B;
     static cv::Mat *m_Img2ReadPtr;
     static cv::Mat *m_Img2WritePtr;
-    static cv::VideoCapture * m_VideoCap2;
+
+    static cv::VideoCapture * m_VideoCap3;
+    static cv::Mat m_Img3A;
+    static cv::Mat m_Img3B;
+    static cv::Mat *m_Img3ReadPtr;
+    static cv::Mat *m_Img3WritePtr;
+
     static bool m_NewSecondaryImg;
+    static bool m_NewThirdImg;
     static pthread_mutex_t FRAMELOCKER;
     static void Init()
     {
@@ -30,6 +41,16 @@ class DriverCamClass
             m_VideoCap2->set(cv::CAP_PROP_FPS, 15);
         }
 
+        m_Img3ReadPtr = &m_Img3A;
+        m_Img3WritePtr = &m_Img3B;
+        m_VideoCap3 = new cv::VideoCapture(2);
+
+        if(m_VideoCap3->isOpened())
+        {
+            m_VideoCap3->set(cv::CAP_PROP_FRAME_WIDTH,320);
+            m_VideoCap3->set(cv::CAP_PROP_FRAME_HEIGHT,240);
+            m_VideoCap3->set(cv::CAP_PROP_FPS, 15);
+        }
     }
     static void GetSecondaryImg(cv::Mat& FillThis)
     {
@@ -41,16 +62,41 @@ class DriverCamClass
             pthread_mutex_unlock(&FRAMELOCKER);
         }
     }
+    static void GetThirdImg(cv::Mat& FillThis)
+    {
+        if(m_NewThirdImg)
+        {
+            pthread_mutex_lock(&FRAMELOCKER);
+            FillThis =  *m_Img3ReadPtr;
+            m_NewThirdImg = false;
+            pthread_mutex_unlock(&FRAMELOCKER);
+        }
+    }
     static void Capture()
     {
-        m_VideoCap2->read(*m_Img2WritePtr);
+        if(m_VideoCap2->isOpened() == true)
+        {
+            m_VideoCap2->read(*m_Img2WritePtr);
 
-        pthread_mutex_lock(&FRAMELOCKER);
-        cv::Mat* Tmp = m_Img2ReadPtr;
-        m_Img2ReadPtr = m_Img2WritePtr;
-        m_Img2WritePtr = Tmp;
-        m_NewSecondaryImg = true;
-        pthread_mutex_unlock(&FRAMELOCKER);
+            pthread_mutex_lock(&FRAMELOCKER);
+            cv::Mat* Tmp = m_Img2ReadPtr;
+            m_Img2ReadPtr = m_Img2WritePtr;
+            m_Img2WritePtr = Tmp;
+            m_NewSecondaryImg = true;
+            pthread_mutex_unlock(&FRAMELOCKER);
+        }
+
+        if(m_VideoCap3->isOpened() == true)
+        {
+            m_VideoCap3->read(*m_Img3WritePtr);
+
+            pthread_mutex_lock(&FRAMELOCKER);
+            cv::Mat* Tmp3 = m_Img3ReadPtr;
+            m_Img3ReadPtr = m_Img3WritePtr;
+            m_Img3WritePtr = Tmp3;
+            m_NewThirdImg = true;
+            pthread_mutex_unlock(&FRAMELOCKER);
+        }
     }
 
     static void* Process(void* arg)
@@ -66,6 +112,9 @@ class DriverCamClass
     {
         delete m_VideoCap2;
         m_VideoCap2 = NULL;
+
+        delete m_VideoCap3;
+        m_VideoCap3 = NULL;
     }
 };
 class VisionTrackerClass
@@ -78,7 +127,9 @@ public:
     void Init();
     void Shutdown();
     cv::Mat* GetSecondaryImg();
+    cv::Mat* GetThirdImg();
     void SetSecondaryImg();
+    void SetThirdImg();
     void Process();
 
     float Get_Target_X() { return m_TargetX; }
@@ -86,6 +137,7 @@ public:
     float Get_Target_Area() { return m_TargetArea; }
 
     void Set_Cross_Hair(CrossHairClass c) { m_CrossHair = c; }
+    void Set_Camera_Mode(CameraMode mode) { m_CameraMode = mode; }
 
     bool New_Image_Processed() { return m_NewImageProcessed; }
     void Get_Image(unsigned char ** data, unsigned int * byte_count,int quality);
@@ -104,10 +156,13 @@ protected:
     float Normalized_Y_To_Pixel_Y(float ny);
     float Normalized_Area_To_Pixel_Area(float na);
 
+    void Build_Img_Front(cv::Mat &Output);
+    void Build_Img_Back(cv::Mat &Output);
 
     cv::VideoCapture * m_VideoCap;
     cv::Mat m_Img;
     cv::Mat m_Img2;
+    cv::Mat m_Img3;
 
     cv::Mat m_TmpImg;
     cv::Mat m_ImgHSV;
@@ -129,6 +184,7 @@ protected:
     int m_TargetContourIndex;
 
     CrossHairClass m_CrossHair;
+    CameraMode m_CameraMode;
 
     bool m_NewImageProcessed;
     unsigned int m_FrameCounter;

@@ -1,20 +1,19 @@
 #include "CrossHairClass.h"
 #include <stdio.h>
 
-const float AREA_NEAR = 0.033f;
-const float AREA_FAR = 0.01f;
-const float AREA_MID = 0.5f*(AREA_NEAR + AREA_FAR);
+const float Y_NEAR = 0.1f;
+const float Y_FAR = -0.7f;
+const float Y_MID = 0.5f*(Y_NEAR + Y_FAR);
+
 
 CrossHairClass::CrossHairClass():
    XNear(0.0f),
-   XFar(0.0f),
-   YNear(0.0f),
-   YFar(0.0f)
+   XFar(0.0f)
 {
     //ctor
 }
 
-void CrossHairClass::Update_Calibration(float tx,float ty,float area)
+void CrossHairClass::Update_Calibration(float tx,float ty)
 {
 
     // two point calibration.  We know that the area of the target when we are near the goal is 0.033
@@ -24,38 +23,28 @@ void CrossHairClass::Update_Calibration(float tx,float ty,float area)
     // When we get a calibration request, we decide which point we are closer to and update that
     // point, proportionally to the current area.
 
-    // if we are closer to 'AREA_NEAR' we update YNear, otherwise update YFar
-    if (area > AREA_MID)
+    // if we are closer to 'Y_NEAR' we update XNear, otherwise update XFar
+    if (ty > Y_MID)
     {
-        //Updating YNear, assume YFar is fixed, compute YNear which would give us ty,area
-        // (YFar - YNear*) / (AREA_FAR - AREA_NEAR) == (YFar - ty) / (AREA_FAR - area)
-        float slope = (YFar - ty) / (AREA_FAR - area);
-        YNear = -slope * (AREA_FAR - AREA_NEAR) + YFar;
-
-        slope = (XFar - tx) / (AREA_FAR - area);
-        XNear = -slope * (AREA_FAR - AREA_NEAR) + XFar;
+        //Updating XNear, assume XFar is fixed, compute XNear which would give us tx,ty
+        float slope = (XFar - tx) / (Y_FAR - ty);
+        XNear = -slope * (Y_FAR - Y_NEAR) + XFar;
     }
     else
     {
-        //Updating YFar. assume YNear is fixed, compute YFar which would give us ty,area
-        // (YFar* - YNear) / (AREA_FAR - AREA_NEAR) == (ty - YNear) / (area - AREA_NEAR)
-        float slope = (ty - YNear) / (area - AREA_NEAR);
-        YFar = slope * (AREA_FAR - AREA_NEAR) + YNear;
-
-        slope = (tx - XNear) / (area - AREA_NEAR);
-        XFar = slope * (AREA_FAR - AREA_NEAR) + XNear;
+        //Updating XFar. assume XNear is fixed, compute XFar which would give us tx,ty
+        float slope = (tx - XNear) / (ty - Y_NEAR);
+        XFar = slope * (Y_FAR - Y_NEAR) + XNear;
     }
 
     // double check
-    float xcheck = Get_X(area);
-    float ycheck = Get_Y(area);
-    printf("Calibrated!  XIn: %f  XCheck: %f YIn: %f  YCheck: %f\r\n",tx,xcheck,ty,ycheck);
+    float xcheck = Get_X(ty);
+    printf("Calibrated!  XIn: %f  XCheck: %f YIn: %f  \r\n",tx,xcheck,ty);
 }
 
-float CrossHairClass::Get_X(float area)
+float CrossHairClass::Get_X(float y)
 {
-   // return the Y value proportional to the area given
-   float fraction = (area - AREA_NEAR) / (AREA_FAR - AREA_NEAR);
+   float fraction = (y - Y_NEAR) / (Y_FAR - Y_NEAR);
    if(fraction < -0.25f)
    {
        fraction = -0.25f;
@@ -67,17 +56,12 @@ float CrossHairClass::Get_X(float area)
    return XNear + fraction * (XFar - XNear);
 }
 
-float CrossHairClass::Get_Y(float area)
+float CrossHairClass::Get_Y_Near()
 {
-   // return the Y value proportional to the area given
-   float fraction = (area - AREA_NEAR) / (AREA_FAR - AREA_NEAR);
-   if(fraction < -0.25f)
-   {
-       fraction = -0.25f;
-   }
-   else if(fraction > 1.25f)
-   {
-       fraction = 1.25f;
-   }
-   return YNear + fraction * (YFar - YNear);
+   return Y_NEAR;
+}
+
+float CrossHairClass::Get_Y_Far()
+{
+   return Y_FAR;
 }

@@ -143,7 +143,7 @@ int main(int argc,char ** argv)
         g_VisionServer.Set_Target(g_VisionTracker.Get_Target_X(),g_VisionTracker.Get_Target_Y(),g_VisionTracker.Get_Target_Area());
         g_VisionTracker.Set_Cross_Hair(g_VisionServer.Get_Cross_Hair());
         g_VisionTracker.Set_Equalize_Image(g_VisionServer.Get_Equalize_Image());
-
+        g_VisionTracker.Set_Camera_Mode(g_VisionServer.Get_Camera_Mode());
         if (g_VisionTracker.New_Image_Processed())
         {
             // limit the framerate of the mjpeg stream

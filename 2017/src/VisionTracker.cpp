@@ -14,6 +14,14 @@ cv::Mat *DriverCamClass::m_Img2ReadPtr;
 cv::Mat *DriverCamClass::m_Img2WritePtr;
 cv::VideoCapture *DriverCamClass::m_VideoCap2;
 bool DriverCamClass::m_NewSecondaryImg;
+
+cv::Mat DriverCamClass::m_Img3A;
+cv::Mat DriverCamClass::m_Img3B;
+cv::Mat *DriverCamClass::m_Img3ReadPtr;
+cv::Mat *DriverCamClass::m_Img3WritePtr;
+cv::VideoCapture *DriverCamClass::m_VideoCap3;
+bool DriverCamClass::m_NewThirdImg;
+
 pthread_mutex_t DriverCamClass::FRAMELOCKER = PTHREAD_MUTEX_INITIALIZER;
 
 //cv::RNG rng(12345);
@@ -58,6 +66,11 @@ inline void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
     cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+len,cy),cv::Scalar(255.0,255.0,255.0),thick);
 }
 
+inline void draw_aim_line(cv::Mat& image,float cx)
+{
+    cv::line(image,cv::Point(cx,0),cv::Point(cx,image.rows),cv::Scalar(255.0,255.0,255.0),1);
+}
+
 inline void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar)
 {
     const float LEN = 4;
@@ -80,6 +93,7 @@ VisionTrackerClass::VisionTrackerClass() :
     m_TargetY(INVALID_TARGET),
     m_TargetArea(0.0f),
     m_TargetContourIndex(0),
+    m_CameraMode(CAM_FRONT),
     m_NewImageProcessed(false),
     m_FrameCounter(0),
     m_TimeElapsedSinceLastFrameGet(0.0f),
@@ -244,10 +258,10 @@ void VisionTrackerClass::Process()
                     cv::convexHull(m_Contours[i],hull);
                     float convex_area = Pixel_Area_To_Normalized_Area(cv::contourArea(hull));
 
-                    // convexity will be 1.0 for a convex shape and very low for a concave shape
+                    //convexity will be 1.0 for a convex shape and very low for a concave shape
                     float convexity = area / convex_area;
 
-                    if((area > 100.0f/(320.0f*240.0f)) && (convexity < 0.5f))
+                    if((area > 10.0f/(320.0f*240.0f)) /*&& (convexity < 0.5f)*/)
                     {
                         // If we had a good target last frame, slightly prefer to aim at it...
                         if ((m_TargetX != INVALID_TARGET) && (m_TargetY != INVALID_TARGET))
@@ -298,23 +312,21 @@ void VisionTrackerClass::Process()
 
             CrossHairClass c = m_CrossHair;
             float cx = c.Get_Average_X();
-            float cy = c.Get_Average_Y();
             float cxn = c.XNear;
             float cxf = c.XFar;
-            float cyn = c.YNear;
-            float cyf = c.YFar;
+            float cyn = c.Get_Y_Near();
+            float cyf = c.Get_Y_Far();
             if (m_TargetX != INVALID_TARGET)
             {
-                cx = c.Get_X(m_TargetArea);
-                cy = c.Get_Y(m_TargetArea);
+                cx = c.Get_X(m_TargetY);
                 draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(m_TargetX),Normalized_Y_To_Pixel_Y(m_TargetY),12,1);
             }
-            draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(cx),Normalized_Y_To_Pixel_Y(cy),32,2);
+            draw_aim_line(m_Img,Normalized_X_To_Pixel_X(cx));
             draw_calibration_range(m_Img,
-            Normalized_X_To_Pixel_X(cxn),
-            Normalized_X_To_Pixel_X(cxf),
-            Normalized_Y_To_Pixel_Y(cyn),
-            Normalized_Y_To_Pixel_Y(cyf));
+              Normalized_X_To_Pixel_X(cxn),
+              Normalized_X_To_Pixel_X(cxf),
+              Normalized_Y_To_Pixel_Y(cyn),
+              Normalized_Y_To_Pixel_Y(cyf));
         }
 
         // measure framerate of the overall system (from last time we updated to this time)
@@ -372,19 +384,18 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
     params.push_back(quality);
 
     Print_FPS_On_Image(m_Img);
-    DriverCamClass::GetSecondaryImg(m_Img2);
-    cv::Mat combine(std::max(m_Img.size().height, m_Img2.size().height), m_Img.size().width + m_Img2.size().width, CV_8UC3);
-    if(m_Img.empty() == false)
+    cv::Mat combine(240,640, CV_8UC3);//std::max(m_Img.size().height, m_Img2.size().height), m_Img.size().width + m_Img2.size().width, CV_8UC3);
+
+    switch (m_CameraMode)
     {
-        cv::Mat left_roi(combine, cv::Rect(0, 0, m_Img.size().width, m_Img.size().height));
-        m_Img.copyTo(left_roi);
+    case CAM_FRONT :
+        Build_Img_Front(combine);
+        break;
+    case CAM_BACK :
+        Build_Img_Back(combine);
+        break;
     }
 
-    if(m_Img2.empty() == false)
-    {
-        cv::Mat right_roi(combine, cv::Rect(m_Img.size().width, 0, m_Img2.size().width, m_Img2.size().height));
-        m_Img2.copyTo(right_roi);
-    }
     cv::imencode(".jpg", combine, m_JpegOutputBuffer, params);
 
     *data = &(m_JpegOutputBuffer[0]);
@@ -392,5 +403,55 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
 
     m_NewImageProcessed = false;
     m_TimeElapsedSinceLastFrameGet = 0.0f;
+
+}
+void VisionTrackerClass::Build_Img_Front(cv::Mat &Output)
+{
+    DriverCamClass::GetSecondaryImg(m_Img2);
+    DriverCamClass::GetThirdImg(m_Img3);
+
+    if(m_Img2.empty() == false)
+    {
+        cv::Mat left_roi(Output, cv::Rect(0, 0, m_Img2.size().width, m_Img2.size().height));
+        m_Img2.copyTo(left_roi);
+    }
+
+    if(m_Img.empty() == false)
+    {
+        cv::Mat right_roi(Output, cv::Rect(m_Img2.size().width, 0, m_Img.size().width, m_Img.size().height));
+        m_Img.copyTo(right_roi);
+    }
+
+    if(m_Img3.empty() == false)
+    {
+        cv::Size sz(0.2f*m_Img2.size().width,0.2f*m_Img2.size().height);
+        cv::Mat pip_roi(Output, cv::Rect(10, 10, sz.width,sz.height));
+        cv::resize(m_Img3,pip_roi,sz);
+    }
+}
+
+void VisionTrackerClass::Build_Img_Back(cv::Mat &Output)
+{
+    DriverCamClass::GetSecondaryImg(m_Img2);
+    DriverCamClass::GetThirdImg(m_Img3);
+
+    if(m_Img3.empty() == false)
+    {
+        cv::Mat left_roi(Output, cv::Rect(0, 0, m_Img3.size().width, m_Img3.size().height));
+        m_Img3.copyTo(left_roi);
+    }
+
+    if(m_Img.empty() == false)
+    {
+        cv::Mat right_roi(Output, cv::Rect(m_Img3.size().width, 0, m_Img.size().width, m_Img.size().height));
+        m_Img.copyTo(right_roi);
+    }
+    // put the front image in a PIP on the back image
+    if(m_Img2.empty() == false)
+    {
+        cv::Size sz(0.2f*m_Img2.size().width,0.2f*m_Img2.size().height);
+        cv::Mat pip_roi(Output, cv::Rect(10, 10, sz.width, sz.height));
+        cv::resize(m_Img2,pip_roi,sz);
+    }
 
 }
