@@ -8,16 +8,32 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/tcp.h>
+#include <signal.h>
 
 
 
 FILE * g_DebugFile = NULL;
+
+
+// ignore SIGPIPE errors
+void sigpipe_handler(int signum)
+{
+    printf("caughtsignal SIGPIPE: %d\r\n",signum);
+}
+
+
+
+
+
 
 ServerClass::ServerClass()
 {
     //ctor
     //g_DebugFile = fopen("ServerDump.bin","w");
     g_DebugFile = NULL; // disable server dump file
+
+    // install the sigpipe handler
+    signal(SIGPIPE,sigpipe_handler);
 }
 
 ServerClass::~ServerClass()

@@ -6,21 +6,22 @@
 #include <stdio.h>
 #include <VisionTracker.h>
 #include <opencv2/videoio/videoio.hpp>
+#include <iostream>
 
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
 
-int hmin=39;
+int hmin=46;
 int hmax = 96;
-int smin=184;
+int smin=60;
 int smax=255;
-int vmin =75;
+int vmin =40;
 int vmax = 255;
 int brightness = 10;
 int exposure = 10;
 int gain = 10;
 
-bool Debug = false;
+bool Debug = true;
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {
@@ -47,6 +48,15 @@ inline void draw_cross_hair(cv::Mat& image,float cx, float cy)
     cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+LEN,cy),cv::Scalar(255.0,255.0,255.0),2);
 }
 
+inline void draw_calibration_range(cv::Mat& image,float cx, float cynear,float cyfar)
+{
+    const float LEN = 4;
+    const float GAP = 10;
+    cv::line(image,cv::Point(cx-GAP-LEN,cynear),cv::Point(cx-GAP,cynear),cv::Scalar(128.0,128.0,255.0),1);
+    cv::line(image,cv::Point(cx-GAP-LEN,cyfar),cv::Point(cx-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
+    cv::line(image,cv::Point(cx-GAP,cynear),cv::Point(cx-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
+}
+
 
 
 
@@ -58,14 +68,14 @@ VisionTrackerClass::VisionTrackerClass() :
     m_ResolutionH(240.0f),
     m_TargetX(INVALID_TARGET),
     m_TargetY(INVALID_TARGET),
-    m_CrossHairX(0.0f),
-    m_CrossHairY(0.0f),
+    m_TargetArea(0.0f),
     m_NewImageProcessed(false),
     m_FrameCounter(0),
     m_TimeElapsedSinceLastFrameGet(0.0f),
     m_FPSTimeElapsed(0.0f),
     m_FPS(0.0f),
-    m_FlipImage(false)
+    m_FlipImage(false),
+    m_EqualizeImage(false)
 {
     // Test coordinate conversion functions...
     /*
@@ -112,16 +122,9 @@ void VisionTrackerClass::Init()
 
     printf("Camera opened: %d x %d\r\n",(int)m_ResolutionW,(int)m_ResolutionH);
 
-    // Tried to set some of the camera settings... not working yet
-    //m_VideoCap->set(cv::CAP_PROP_BRIGHTNESS,0.2f);
-    //m_VideoCap->set(cv::CAP_PROP_EXPOSURE,0.2f);
-    //m_VideoCap->set(cv::CAP_PROP_AUTO_EXPOSURE,0);
-    //m_VideoCap->set(cv::CAP_PROP_GAIN, 0.1f);
-
-    cv::namedWindow("Video",0);
-
     if(Debug == true)
     {
+        cv::namedWindow("Video",0);
          cv::createTrackbar( "hmin:", "Video", &hmin, 255, NULL );
          cv::createTrackbar( "hmax:", "Video", &hmax, 255, NULL );
          cv::createTrackbar( "smin:", "Video", &smin, 255, NULL );
@@ -129,10 +132,7 @@ void VisionTrackerClass::Init()
          cv::createTrackbar( "vmin:", "Video", &vmin, 255, NULL );
          cv::createTrackbar( "vmax:", "Video", &vmax, 255, NULL );
          cv::namedWindow("Thres", 0);
-
-         //cv::createTrackbar( "exposure:", "Video", &exposure, 255, NULL );
-         //cv::createTrackbar( "brightness:", "Video", &brightness, 255, NULL );
-         //cv::createTrackbar( "gain:", "Video", &gain, 255, NULL );
+         cv::namedWindow("DIL", 0);
      }
      cv::waitKey(1);
 }
@@ -142,6 +142,8 @@ void VisionTrackerClass::Shutdown()
     delete m_VideoCap;
     m_VideoCap = NULL;
     cv::destroyWindow("Video");
+    cv::destroyWindow("Thresh");
+    cv::destroyWindow("DIL");
 }
 
 float VisionTrackerClass::Pixel_X_To_Normalized_X(float pixel_x)
@@ -152,6 +154,12 @@ float VisionTrackerClass::Pixel_X_To_Normalized_X(float pixel_x)
 float VisionTrackerClass::Pixel_Y_To_Normalized_Y(float pixel_y)
 {
     return -(pixel_y - 0.5f*m_ResolutionH) / (0.5f*m_ResolutionH);
+}
+float VisionTrackerClass::Pixel_Area_To_Normalized_Area(float pixel_area)
+{
+    float pixelRes = m_ResolutionH * m_ResolutionW;
+
+    return pixel_area/pixelRes;
 }
 
 float VisionTrackerClass::Normalized_X_To_Pixel_X(float nx)
@@ -165,75 +173,143 @@ float VisionTrackerClass::Normalized_Y_To_Pixel_Y(float ny)
     // output goes from res_h to 0 (opposite sense)
     return (-ny) * 0.5f*m_ResolutionH + 0.5f*m_ResolutionH;
 }
+float VisionTrackerClass::Normalized_Area_To_Pixel_Area(float na)
+{
+    // na goes from 0..+1
+
+    return (na) * (m_ResolutionH *m_ResolutionH);
+}
 
 void VisionTrackerClass::Process()
 {
-    if (Debug)
-    {
-        //m_VideoCap->set(cv::CAP_PROP_BRIGHTNESS,(float)(brightness)/255.0f);
-        //m_VideoCap->set(cv::CAP_PROP_EXPOSURE,(float)(exposure)/255.0f);
-        //m_VideoCap->set(cv::CAP_PROP_GAIN,(float)(gain)/255.0f);
-    }
-
-    unsigned int i;
     bool got_frame = m_VideoCap->read(m_Img);
-    //m_Img=cv::cvarrToMat(cvQueryFrame(m_VideoCap));
+
     if (got_frame && (m_Img.empty() == false))
     {
-        int d = 0;
-
         m_TargetX = INVALID_TARGET;
         m_TargetY = INVALID_TARGET;
         m_NewImageProcessed = true;
 
-        cv::cvtColor(m_Img,m_ImgHSV,cv::COLOR_BGR2HSV);
-       // cv::inRange(m_ImgHSV,cv::Scalar(40,167,193),cv::Scalar(119,255,255),m_Imgthresh);
-        cv::inRange(m_ImgHSV,cv::Scalar(hmin,smin,vmin),cv::Scalar(hmax,smax,vmax),m_Imgthresh);
-        cv::dilate(m_Imgthresh, m_ImgDilated, cv::Mat(), cv::Point(-1, -1), 2);
-        cv::findContours( m_ImgDilated, m_Contours, m_Hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
-
-        draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(m_CrossHairX),Normalized_Y_To_Pixel_Y(m_CrossHairY));
-
-        // Eliminate some 'false-positive' contours
-        for( i = 0; i < m_Contours.size(); i++)
+        if (m_FlipImage)
         {
-            float area = cv::contourArea(m_Contours[i]);
-            if(area < 500)
-            {
-                m_Contours.erase(m_Contours.begin() + i);
-                d++;
-            }
+            #define FLIP_X 0
+            #define FLIP_Y 1
+            cv::flip(m_Img,m_TmpImg,FLIP_X);
+            m_TmpImg.copyTo(m_Img);
         }
 
-        // If we have contours left, try to pick the best target
-        if (m_Contours.size() > 0)
+        // When we're using the 'EqualizeImage' feature, we aren't tracking
+        if (m_EqualizeImage)
         {
-            int best_contour = 0;
-            int best_area = 0.0f;
+            cv::cvtColor(m_Img,m_TmpImg,cv::COLOR_BGR2GRAY);
+            cv::equalizeHist(m_TmpImg, m_Img);
+        }
+        else
+        {
+            cv::cvtColor(m_Img,m_ImgHSV,cv::COLOR_BGR2HSV);
 
-            for( i = 0; i < m_Contours.size(); i++)
+           // cv::inRange(m_ImgHSV,cv::Scalar(40,167,193),cv::Scalar(119,255,255),m_Imgthresh);
+            cv::inRange(m_ImgHSV,cv::Scalar(hmin,smin,vmin),cv::Scalar(hmax,smax,vmax),m_Imgthresh);
+            cv::dilate(m_Imgthresh, m_ImgDilated, cv::Mat(), cv::Point(-1, -1), 2);
+            cv::findContours( m_Imgthresh, m_Contours, m_Hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
+
+            // Eliminate some 'false-positive' contours
+           //  printf("begn: %d\r\n",(int)m_Contours.size());
+           /*
+            for( int i = 0; i < m_Contours.size(); i++)
             {
                 float area = cv::contourArea(m_Contours[i]);
-                if (area > best_area)
+
+                if(area < 50)
                 {
-                    best_area = area;
-                    best_contour = i;
+                // printf("delete: %f\r\n",area);
+                    m_Contours.erase(m_Contours.begin()+i);
+
+                    d++;
                 }
-                cv::Scalar color = cv::Scalar( 0, 0, 255);
-                cv::drawContours( m_Img, m_Contours, i, color, 1, 4, m_Hierarchy, 0, cv::Point(0, 0));
+                else
+                {
+                    m_Goodcontours.insert(m_Goodcontours.begin()+m_Goodcontours.size(),m_Contours[i]);
+                }
+            }
+    */
+
+            // If we have contours left, try to pick the best target
+            //   printf("remaining: %d\r\n",(int)m_Goodcontours.size());
+            if (m_Contours.size() > 0)
+            {
+                int best_contour = -1;
+                int best_area = 0.0f;
+
+                for( unsigned int i = 0; i < m_Contours.size(); i++)
+                {
+                    float area = Pixel_Area_To_Normalized_Area(cv::contourArea(m_Contours[i]));
+                    if(area > 150.0f/(320.0f*240.0f))
+                    {
+                        // If we had a good target last frame, slightly prefer to aim at it...
+                        if ((m_TargetX != INVALID_TARGET) && (m_TargetY != INVALID_TARGET))
+                        {
+                            cv::RotatedRect candidate_rect = cv::minAreaRect(m_Contours[i]);
+                            float center_x = Pixel_X_To_Normalized_X(candidate_rect.center.x);
+                            float center_y = Pixel_Y_To_Normalized_Y(candidate_rect.center.y);
+                            float delta_x = center_x - m_TargetX;
+                            float delta_y = center_y - m_TargetY;
+                            float dist = sqrt((delta_x*delta_x) + (delta_y * delta_y));
+
+                            // essentially penalize each target based on how far from the last
+                            // target it was.  20*dist means a target 1/2 screen away loses 20pixels of area
+                            // if it is more than 20 pixels of area bigger than the last target, it will still
+                            // get chosen and then we'll stick to it.
+                            area -= 20.0f * dist;
+                        }
+
+                        if (area > best_area)
+                        {
+                            best_area = area;
+                            best_contour = i;
+                        }
+                    }
+                    cv::Scalar color = cv::Scalar( 0, 0, 255);
+                    cv::drawContours( m_Img, m_Contours, i, color, 1, 4, m_Hierarchy, 0, cv::Point(0, 0));
+                }
+                // Set Targetx, Targety based on the best contour we found
+                if (best_contour != -1)
+                {
+                    cv::RotatedRect rect = cv::minAreaRect(m_Contours[best_contour]);
+                    float target_pixel_x = rect.center.x;
+                    float target_pixel_y = rect.center.y;
+                    float target_pixel_area = rect.size.area();
+
+                    // compute the normalized target position (resolution independent)
+                    m_TargetX = Pixel_X_To_Normalized_X(target_pixel_x);
+                    m_TargetY = Pixel_Y_To_Normalized_Y(target_pixel_y);
+                    m_TargetArea = Pixel_Area_To_Normalized_Area(target_pixel_area);
+
+                    // Draw the rect on our image
+                    draw_rotated_rect(m_Img,rect,cv::Scalar(255, 255, 0));
+                }
+                m_Contours.clear();
             }
 
-            // Set Targetx, Targety based on the best contour we found
-            cv::RotatedRect rect = cv::minAreaRect(m_Contours[best_contour]);
-            float target_pixel_x = rect.center.x;
-            float target_pixel_y = rect.center.y;
-
-            // compute the normalized target position (resolution independent)
-            m_TargetX = Pixel_X_To_Normalized_X(target_pixel_x);
-            m_TargetY = Pixel_Y_To_Normalized_Y(target_pixel_y);
-
-            // Draw the rect on our image
-            draw_rotated_rect(m_Img,rect,cv::Scalar(255, 255, 0));
+            // CrossHair / Aiming Calibration is completely separate based on
+            // whether we're using a flipped image (aiming backwards) or not
+            CrossHairClass c = m_CrossHair;
+            if(m_FlipImage)
+            {
+                c = m_CrossHair2;
+            }
+            float cx = c.X;
+            float cy = c.Get_Average_Y();
+            float cyn = c.YNear;
+            float cyf = c.YFar;
+            if (m_TargetX != INVALID_TARGET)
+            {
+                cy = c.Get_Y(m_TargetArea);
+            }
+            draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(cx),Normalized_Y_To_Pixel_Y(cy));
+            draw_calibration_range(m_Img,Normalized_X_To_Pixel_X(c.X),
+                Normalized_Y_To_Pixel_Y(cyn),
+                Normalized_Y_To_Pixel_Y(cyf));
         }
 
         // measure framerate of the overall system (from last time we updated to this time)
@@ -258,13 +334,13 @@ void VisionTrackerClass::Process()
             printf("fps: %f\r\n",m_FPS);
         }
 
-        cv::imshow("Video",m_Img);
-
         // display the image on the desktop
         if(Debug)
         {
             cv::imshow("Video",m_Img);
             cv::imshow("Thres",m_Imgthresh);
+            cv::imshow("DIL",m_ImgDilated);
+
         }
         cv::waitKey(1);
     }
@@ -283,19 +359,8 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
     params.push_back(cv::IMWRITE_JPEG_QUALITY);
     params.push_back(quality);
 
-    if (m_FlipImage)
-    {
-        #define FLIP_X 0
-        #define FLIP_Y 1
-        cv::flip(m_Img,m_FlippedImg,FLIP_X);
-        Print_FPS_On_Image(m_FlippedImg);
-        cv::imencode(".jpg", m_FlippedImg, m_JpegOutputBuffer, params);
-    }
-    else
-    {
-        Print_FPS_On_Image(m_Img);
-        cv::imencode(".jpg", m_Img, m_JpegOutputBuffer, params);
-    }
+    Print_FPS_On_Image(m_Img);
+    cv::imencode(".jpg", m_Img, m_JpegOutputBuffer, params);
 
     *data = &(m_JpegOutputBuffer[0]);
     *byte_count = m_JpegOutputBuffer.size();
@@ -303,5 +368,3 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
     m_NewImageProcessed = false;
     m_TimeElapsedSinceLastFrameGet = 0.0f;
 }
-
-

@@ -52,9 +52,11 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="include/CrossHairClass.h" />
 		<Unit filename="include/ServerClass.h" />
 		<Unit filename="include/VisionServerClass.h" />
 		<Unit filename="include/VisionTracker.h" />
+		<Unit filename="src/CrossHairClass.cpp" />
 		<Unit filename="src/ServerClass.cpp" />
 		<Unit filename="src/VisionServerClass.cpp" />
 		<Unit filename="src/VisionTracker.cpp" />

@@ -45,7 +45,7 @@ void Track()
     cv::namedWindow("Video",0);
 
     char buffer[10];
-    double t1;
+    double t1 = 0.0;
 
     for(;;)
     {
@@ -73,9 +73,11 @@ void Track()
                     cv::drawContours( img, contours, i, color, 2, 8, hierarchy, 0, cv::Point(0, 0));
                 }
             }
-
-            sprintf(buffer, "d: %d, fps: %f",d,1/t1);
-            cv::putText(img, buffer, cv::Point(0, 50), CV_FONT_HERSHEY_SIMPLEX, 1.5,cv::Scalar(0,255,0));
+            if (t1 > 0.0)
+            {
+                sprintf(buffer, "d: %d, fps: %f",d,1/t1);
+                cv::putText(img, buffer, cv::Point(0, 50), CV_FONT_HERSHEY_SIMPLEX, 1.5,cv::Scalar(0,255,0));
+            }
             cv::imshow("Video",img);
         }
         c = cv::waitKey(1);

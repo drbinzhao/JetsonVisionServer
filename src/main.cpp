@@ -137,10 +137,11 @@ int main(int argc,char ** argv)
         g_VisionTracker.Process();
 
         // pass data between systems
-        g_VisionServer.Set_Target(g_VisionTracker.Get_Target_X(),g_VisionTracker.Get_Target_Y());
-        g_VisionTracker.Set_Cross_Hair_X(g_VisionServer.Get_Cross_Hair_X());
-        g_VisionTracker.Set_Cross_Hair_Y(g_VisionServer.Get_Cross_Hair_Y());
+        g_VisionServer.Set_Target(g_VisionTracker.Get_Target_X(),g_VisionTracker.Get_Target_Y(),g_VisionTracker.Get_Target_Area());
+        g_VisionTracker.Set_Cross_Hair(g_VisionServer.Get_Cross_Hair());
+        g_VisionTracker.Set_Cross_Hair2(g_VisionServer.Get_Cross_Hair2());
         g_VisionTracker.Set_Flip_Image(g_VisionServer.Get_Flip_Image());
+        g_VisionTracker.Set_Equalize_Image(g_VisionServer.Get_Equalize_Image());
 
         if (g_VisionTracker.New_Image_Processed())
         {
@@ -154,6 +155,5 @@ int main(int argc,char ** argv)
             }
         }
     }
-
     return 0;
 }

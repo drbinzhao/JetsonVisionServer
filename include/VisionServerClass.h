@@ -2,6 +2,7 @@
 #define MJPGSERVERCLASS_H
 
 #include "ServerClass.h"
+#include "CrossHairClass.h"
 
 //
 // VisionServerClass
@@ -33,13 +34,16 @@ class VisionServerClass : public ServerClass
         void Cmd_Flip_Image(int client_socket,const char *params);
         void Cmd_Set_Mjpeg_Quality(int client_socket, const char * params);
         void Cmd_Set_Cross_Hair(int client_socket,const char * params);
+        void Cmd_Get_Cross_Hair(int client_socket,const char * params);
+        void Cmd_Equalize_Image(int client_socket, const char * params);
 
-        void Set_Target(float x, float y){m_TargetX = x; m_TargetY = y;}
+        void Set_Target(float x, float y,float area){m_TargetX = x; m_TargetY = y;m_TargetArea = area;}
         float Get_Arm_Angle(void){return m_ArmAngle;}
         int Get_Mjpeg_Quality() {return m_MjpegQuality; }
         bool Get_Flip_Image() { return m_FlipImage; }
-        float Get_Cross_Hair_X() { return m_CrossHairX; }
-        float Get_Cross_Hair_Y() { return m_CrossHairY; }
+        bool Get_Equalize_Image() { return m_EqualizeImage; }
+        CrossHairClass Get_Cross_Hair(){return m_CrossHair;}
+        CrossHairClass Get_Cross_Hair2(){return m_CrossHair2;}
 
     protected:
 
@@ -63,11 +67,13 @@ class VisionServerClass : public ServerClass
         float m_ArmAngle;
         float m_TargetX;
         float m_TargetY;
-        float m_CrossHairX;
-        float m_CrossHairY;
+        float m_TargetArea;
+        CrossHairClass m_CrossHair;
+        CrossHairClass m_CrossHair2;    // used when we shoot backwards
 
         int m_MjpegQuality;
         bool m_FlipImage;
+        bool m_EqualizeImage;
 
 };
 

@@ -3,6 +3,8 @@
 #include "stdlib.h"
 #include "string.h"
 #include <unistd.h>
+#include <math.h>
+#include "VisionTracker.h"
 
 
 const char * SETTINGS_FILENAME = "/home/ubuntu/Documents/JetsonVisionServerSettings.txt";
@@ -18,10 +20,9 @@ VisionServerClass::VisionServerClass() :
     m_ArmAngle(0.0f),
     m_TargetX(0.0f),
     m_TargetY(0.0f),
-    m_CrossHairX(0.0f),
-    m_CrossHairY(0.0f),
     m_MjpegQuality(30),
-    m_FlipImage(false)
+    m_FlipImage(false),
+    m_EqualizeImage(false)
 {
     memset(m_ImageData,0,sizeof(m_ImageData));
     Load_Settings();
@@ -39,7 +40,8 @@ void VisionServerClass::Save_Settings()
     FILE * f = fopen(SETTINGS_FILENAME,"w");
     if (f != NULL)
     {
-        fprintf(f,"CrossHair %f %f\r\n",m_CrossHairX,m_CrossHairY);
+        fprintf(f,"CrossHair %f %f %f\r\n",m_CrossHair.X,m_CrossHair.YNear,m_CrossHair.YFar);
+        fprintf(f,"CrossHair2 %f %f %f\r\n",m_CrossHair2.X,m_CrossHair2.YNear,m_CrossHair2.YFar);
         fprintf(f,"MjpegQuality %d\r\n",m_MjpegQuality);
         fclose(f);
     }
@@ -57,8 +59,15 @@ void VisionServerClass::Load_Settings()
             // handle the different cases of settings
             if (strcmp(token,"CrossHair") == 0)
             {
-                m_CrossHairX = atof(strtok(NULL," \r\n"));
-                m_CrossHairY = atof(strtok(NULL," \r\n"));
+                m_CrossHair.X = atof(strtok(NULL," \r\n"));
+                m_CrossHair.YNear = atof(strtok(NULL," \r\n"));
+                m_CrossHair.YFar = atof(strtok(NULL," \r\n"));
+            }
+            else if(strcmp(token,"CrossHair2") == 0)
+            {
+                m_CrossHair2.X = atof(strtok(NULL," \r\n"));
+                m_CrossHair2.YNear = atof(strtok(NULL," \r\n"));
+                m_CrossHair2.YFar = atof(strtok(NULL," \r\n"));
             }
             else if (strcmp(token,"MjpegQuality") == 0)
             {
@@ -68,7 +77,7 @@ void VisionServerClass::Load_Settings()
 
         fclose(f);
         printf("Loaded Settings:\r\n");
-        printf(" CrossHair: %f, %f\r\n",m_CrossHairX,m_CrossHairY);
+        printf(" CrossHair: %f, %f, %f\r\n",m_CrossHair.X,m_CrossHair.YNear,m_CrossHair.YFar);
         printf(" MjpegQuality: %d\r\n",m_MjpegQuality);
     }
     else
@@ -81,8 +90,6 @@ void VisionServerClass::Load_Settings()
             printf(" Current directory: %s\r\n",dir_name);
         }
     }
-
-
 }
 
 void VisionServerClass::Send_Mjpg_Http_Header(int client_socket)
@@ -135,7 +142,6 @@ void VisionServerClass::Handle_Incoming_Message(int client_socket,char * msg)
         cmd = strtok(NULL,"\n");
     }
 }
-
 void VisionServerClass::Process()
 {
     ServerClass::Process();
@@ -214,7 +220,14 @@ void VisionServerClass::Handle_Command(int client_socket,char * cmd)
             // Set targetting calibration
             Cmd_Set_Cross_Hair(client_socket,params);
             break;
-
+        case '5':
+            //Get cross hair
+            Cmd_Get_Cross_Hair(client_socket,params);
+            break;
+         case '6':
+            // set image flipping
+            Cmd_Equalize_Image(client_socket, params);
+            break;
         case 'q':
             Cmd_Shutdown(client_socket, params);
             break;
@@ -234,14 +247,15 @@ void VisionServerClass::Cmd_Help(int client_socket, const char * params)
     Send_String(client_socket," 2 <flip image> - flip image (0 or 1)\r\n");
     Send_String(client_socket," 3 <mjpg quality> - set mjpeg quality (0-100)\r\n");
     Send_String(client_socket," 4 set crosshair coords to current target \r\n");
-
+    Send_String(client_socket," 5 get crosshair\r\n");
+    Send_String(client_socket," 6 <equalize image> - equalize image (0 or 1)\r\n");
     Send_String(client_socket," q - SHUTDOWN\r\n");
 }
 
 void VisionServerClass::Cmd_Shutdown(int client_socket,const char * params)
 {
     int success;
-    success = system("sudo ~/Killscript.sh");
+    success = system("~/Killscript.sh");
     if (success == 0)
     {
         printf("system call failed.");
@@ -251,7 +265,7 @@ void VisionServerClass::Cmd_Shutdown(int client_socket,const char * params)
 void VisionServerClass::Cmd_Get_Target(int client_socket,const char * params)
 {
     char buf[1024];
-    sprintf(buf,"0 %10.6g %10.6g\r\n",m_TargetX, m_TargetY);
+    sprintf(buf,"0 %10.6g %10.6g %10.6g\r\n",m_TargetX, m_TargetY, m_TargetArea);
     Send_String(client_socket,buf);
 }
 
@@ -279,8 +293,45 @@ void VisionServerClass::Cmd_Set_Mjpeg_Quality(int client_socket, const char * pa
 
 void VisionServerClass::Cmd_Set_Cross_Hair(int client_socket,const char * params)
 {
-    m_CrossHairX = m_TargetX;
-    m_CrossHairY = m_TargetY;
-    Save_Settings();
+    if ((fabs(m_TargetX) < 1.0f) && (fabs(m_TargetY) < 1.0f))
+    {
+        if (m_FlipImage)
+        {
+            m_CrossHair2.Update_Calibration(m_TargetX,m_TargetY,m_TargetArea);
+        }
+        else
+        {
+            m_CrossHair.Update_Calibration(m_TargetX,m_TargetY,m_TargetArea);
+        }
+
+        Save_Settings();
+    }
 }
 
+void VisionServerClass::Cmd_Get_Cross_Hair(int client_socket,const char * params)
+{
+    char buf[1024];
+
+    // pick the right cross hair depending on if we're shooting backwards.
+    CrossHairClass c = m_CrossHair;
+    if (m_FlipImage)
+    {
+        c = m_CrossHair2;
+    }
+
+    float x = c.X;
+    float y = c.Get_Average_Y();
+    if (m_TargetX != INVALID_TARGET)
+    {
+        y = c.Get_Y(m_TargetArea);
+    }
+    sprintf(buf,"5 %10.6g %10.6g\r\n",x, y);
+    Send_String(client_socket,buf);
+}
+
+void VisionServerClass::Cmd_Equalize_Image(int client_socket,const char *params)
+{
+    int value;
+    sscanf(params,"%d",&value);
+    m_EqualizeImage = (value != 0);
+}
