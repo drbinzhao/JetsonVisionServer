@@ -21,7 +21,7 @@ int brightness = 10;
 int exposure = 10;
 int gain = 10;
 
-bool Debug = true;
+bool Debug = false;
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {

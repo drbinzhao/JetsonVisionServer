@@ -124,7 +124,7 @@ int main(int argc,char ** argv)
     }
 
     printf("Starting up!\r\n");
-    g_VisionServer.Init(9870);
+    g_VisionServer.Init(5800);
     g_VisionTracker.Init();
 
     //Test_Mjpg();
