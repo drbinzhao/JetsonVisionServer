@@ -7,7 +7,14 @@
 #include <VisionTracker.h>
 #include <opencv2/videoio/videoio.hpp>
 #include <iostream>
-#include <unistd.h>
+
+cv::Mat DriverCamClass::m_Img2A;
+cv::Mat DriverCamClass::m_Img2B;
+cv::Mat *DriverCamClass::m_Img2ReadPtr;
+cv::Mat *DriverCamClass::m_Img2WritePtr;
+cv::VideoCapture *DriverCamClass::m_VideoCap2;
+bool DriverCamClass::m_NewSecondaryImg;
+pthread_mutex_t DriverCamClass::FRAMELOCKER = PTHREAD_MUTEX_INITIALIZER;
 
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
@@ -23,6 +30,9 @@ int exposure = 10;
 int gain = 10;
 
 bool Debug = false;
+
+
+
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {
@@ -63,7 +73,6 @@ inline void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, flo
 
 VisionTrackerClass::VisionTrackerClass() :
     m_VideoCap(NULL),
-    m_VideoCap2(NULL),
     m_LastUpdateTime(0.0),
     m_ResolutionW(320.0f),
     m_ResolutionH(240.0f),
@@ -101,8 +110,10 @@ void VisionTrackerClass::Init()
     m_ResolutionW = 320;
     m_ResolutionH = 240;
 
+
+
     m_VideoCap = new cv::VideoCapture(0); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs first when this program is ran
-    m_VideoCap2 = new cv::VideoCapture(1);
+
     sleep(1);
     if (!m_VideoCap->isOpened())
     {
@@ -118,16 +129,12 @@ void VisionTrackerClass::Init()
     m_VideoCap->set(cv::CAP_PROP_FRAME_HEIGHT,m_ResolutionH);
     m_VideoCap->set(cv::CAP_PROP_FPS, 125);
 
-    if(m_VideoCap2->isOpened())
-    {
-        m_VideoCap2->set(cv::CAP_PROP_FRAME_WIDTH,m_ResolutionW);
-        m_VideoCap2->set(cv::CAP_PROP_FRAME_HEIGHT,m_ResolutionH);
-        m_VideoCap2->set(cv::CAP_PROP_FPS, 125);
-    }
+
     // Store off the actual resolution the camera is running at
     m_ResolutionW = m_VideoCap->get(cv::CAP_PROP_FRAME_WIDTH);
     m_ResolutionH = m_VideoCap->get(cv::CAP_PROP_FRAME_HEIGHT);
 
+    DriverCamClass::Init();
     printf("Camera opened: %d x %d\r\n",(int)m_ResolutionW,(int)m_ResolutionH);
 
     if(Debug == true)
@@ -144,14 +151,16 @@ void VisionTrackerClass::Init()
          cv::namedWindow("Video2",0);
      }
      cv::waitKey(1);
+
+    pthread_t SecondThread;
+    pthread_create(&SecondThread,NULL,&DriverCamClass::Process,NULL);
 }
 
 void VisionTrackerClass::Shutdown()
 {
     delete m_VideoCap;
-    delete m_VideoCap2;
     m_VideoCap = NULL;
-    m_VideoCap2 = NULL;
+    DriverCamClass::Shutdown();
     cv::destroyWindow("Video");
     cv::destroyWindow("Video2");
     cv::destroyWindow("Thresh");
@@ -196,8 +205,7 @@ void VisionTrackerClass::Process()
 {
 
     bool got_frame = m_VideoCap->read(m_Img);
-    bool got_frame2 = m_VideoCap2->read(m_Img2);
-
+    bool got_frame2 = false;
     if (got_frame && (m_Img.empty() == false))
     {
         m_TargetX = INVALID_TARGET;
@@ -340,7 +348,7 @@ void VisionTrackerClass::Process()
             }
             if(got_frame2)
             {
-                cv::imshow("Video2",m_Img2);
+         //       cv::imshow("Video2",m_Img2);
             }
             cv::imshow("Thres",m_Imgthresh);
             cv::imshow("DIL",m_ImgDilated);
@@ -364,18 +372,19 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
     params.push_back(quality);
 
     Print_FPS_On_Image(m_Img);
+    DriverCamClass::GetSecondaryImg(m_Img2);
     cv::Mat combine(std::max(m_Img.size().height, m_Img2.size().height), m_Img.size().width + m_Img2.size().width, CV_8UC3);
     if(m_Img.empty() == false)
     {
         cv::Mat left_roi(combine, cv::Rect(0, 0, m_Img.size().width, m_Img.size().height));
         m_Img.copyTo(left_roi);
     }
+
     if(m_Img2.empty() == false)
     {
         cv::Mat right_roi(combine, cv::Rect(m_Img.size().width, 0, m_Img2.size().width, m_Img2.size().height));
         m_Img2.copyTo(right_roi);
     }
-
     cv::imencode(".jpg", combine, m_JpegOutputBuffer, params);
 
     *data = &(m_JpegOutputBuffer[0]);
