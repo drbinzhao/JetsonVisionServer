@@ -40,8 +40,8 @@ void VisionServerClass::Save_Settings()
     FILE * f = fopen(SETTINGS_FILENAME,"w");
     if (f != NULL)
     {
-        fprintf(f,"CrossHair %f %f %f\r\n",m_CrossHair.X,m_CrossHair.YNear,m_CrossHair.YFar);
-        fprintf(f,"CrossHair2 %f %f %f\r\n",m_CrossHair2.X,m_CrossHair2.YNear,m_CrossHair2.YFar);
+        fprintf(f,"CrossHair %f %f %f %f\r\n",m_CrossHair.XNear,m_CrossHair.XFar,m_CrossHair.YNear,m_CrossHair.YFar);
+        fprintf(f,"CrossHair2 %f %f %f %f\r\n",m_CrossHair2.XNear,m_CrossHair2.XFar,m_CrossHair2.YNear,m_CrossHair2.YFar);
         fprintf(f,"MjpegQuality %d\r\n",m_MjpegQuality);
         fclose(f);
     }
@@ -59,13 +59,16 @@ void VisionServerClass::Load_Settings()
             // handle the different cases of settings
             if (strcmp(token,"CrossHair") == 0)
             {
-                m_CrossHair.X = atof(strtok(NULL," \r\n"));
+                m_CrossHair.XNear = atof(strtok(NULL," \r\n"));
+                m_CrossHair.XFar = atof(strtok(NULL," \r\n"));
+
                 m_CrossHair.YNear = atof(strtok(NULL," \r\n"));
                 m_CrossHair.YFar = atof(strtok(NULL," \r\n"));
             }
             else if(strcmp(token,"CrossHair2") == 0)
             {
-                m_CrossHair2.X = atof(strtok(NULL," \r\n"));
+                m_CrossHair2.XNear = atof(strtok(NULL," \r\n"));
+                m_CrossHair2.XFar = atof(strtok(NULL," \r\n"));
                 m_CrossHair2.YNear = atof(strtok(NULL," \r\n"));
                 m_CrossHair2.YFar = atof(strtok(NULL," \r\n"));
             }
@@ -77,7 +80,7 @@ void VisionServerClass::Load_Settings()
 
         fclose(f);
         printf("Loaded Settings:\r\n");
-        printf(" CrossHair: %f, %f, %f\r\n",m_CrossHair.X,m_CrossHair.YNear,m_CrossHair.YFar);
+        printf(" CrossHair: %f, %f %f, %f\r\n",m_CrossHair.XNear,m_CrossHair.XFar,m_CrossHair.YNear,m_CrossHair.YFar);
         printf(" MjpegQuality: %d\r\n",m_MjpegQuality);
     }
     else
@@ -319,10 +322,11 @@ void VisionServerClass::Cmd_Get_Cross_Hair(int client_socket,const char * params
         c = m_CrossHair2;
     }
 
-    float x = c.X;
+    float x = c.Get_Average_X();
     float y = c.Get_Average_Y();
     if (m_TargetX != INVALID_TARGET)
     {
+        x = c.Get_X(m_TargetArea);
         y = c.Get_Y(m_TargetArea);
     }
     sprintf(buf,"5 %.4f %.4f\r\n",x, y);

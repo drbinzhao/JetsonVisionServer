@@ -11,7 +11,7 @@
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
 
-int hmin=46;
+int hmin=46; //50
 int hmax = 96;
 int smin=60;
 int smax=255;
@@ -47,13 +47,13 @@ inline void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
     cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+len,cy),cv::Scalar(255.0,255.0,255.0),thick);
 }
 
-inline void draw_calibration_range(cv::Mat& image,float cx, float cynear,float cyfar)
+inline void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar)
 {
     const float LEN = 4;
     const float GAP = 10;
-    cv::line(image,cv::Point(cx-GAP-LEN,cynear),cv::Point(cx-GAP,cynear),cv::Scalar(128.0,128.0,255.0),1);
-    cv::line(image,cv::Point(cx-GAP-LEN,cyfar),cv::Point(cx-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
-    cv::line(image,cv::Point(cx-GAP,cynear),cv::Point(cx-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
+    cv::line(image,cv::Point(cxnear-GAP-LEN,cynear),cv::Point(cxnear-GAP,cynear),cv::Scalar(128.0,128.0,255.0),1);
+    cv::line(image,cv::Point(cxfar-GAP-LEN,cyfar),cv::Point(cxfar-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
+    cv::line(image,cv::Point(cxnear-GAP,cynear),cv::Point(cxfar-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
 }
 
 
@@ -68,6 +68,7 @@ VisionTrackerClass::VisionTrackerClass() :
     m_TargetX(INVALID_TARGET),
     m_TargetY(INVALID_TARGET),
     m_TargetArea(0.0f),
+    m_TargetContourIndex(0),
     m_NewImageProcessed(false),
     m_FrameCounter(0),
     m_TimeElapsedSinceLastFrameGet(0.0f),
@@ -218,12 +219,21 @@ void VisionTrackerClass::Process()
             if (m_Contours.size() > 0)
             {
                 int best_contour = -1;
-                int best_area = 0.0f;
+                int best_area = -100000.0f;
 
                 for( unsigned int i = 0; i < m_Contours.size(); i++)
                 {
                     float area = Pixel_Area_To_Normalized_Area(cv::contourArea(m_Contours[i]));
-                    if(area > 100.0f/(320.0f*240.0f))
+
+                    // compute convex hull area
+                    std::vector<cv::Point> hull;
+                    cv::convexHull(m_Contours[i],hull);
+                    float convex_area = Pixel_Area_To_Normalized_Area(cv::contourArea(hull));
+
+                    // convexity will be 1.0 for a convex shape and very low for a concave shape
+                    float convexity = area / convex_area;
+
+                    if((area > 100.0f/(320.0f*240.0f)) && (convexity < 0.5f))
                     {
                         // If we had a good target last frame, slightly prefer to aim at it...
                         if ((m_TargetX != INVALID_TARGET) && (m_TargetY != INVALID_TARGET))
@@ -240,6 +250,12 @@ void VisionTrackerClass::Process()
                             // if it is more than 20 pixels of area bigger than the last target, it will still
                             // get chosen and then we'll stick to it.
                             area -= 20.0f * dist;
+                        }
+
+                        // if this target is the same contour index, give it a little boost in area
+                        if (i == m_TargetContourIndex)
+                        {
+                            area += 175.0f;
                         }
 
                         if (area > best_area)
@@ -264,6 +280,7 @@ void VisionTrackerClass::Process()
                     m_TargetX = Pixel_X_To_Normalized_X(target_pixel_x);
                     m_TargetY = Pixel_Y_To_Normalized_Y(target_pixel_y);
                     m_TargetArea = Pixel_Area_To_Normalized_Area(target_pixel_area);
+                    m_TargetContourIndex = best_contour;
 
                     // Draw the rect on our image
                     draw_rotated_rect(m_Img,rect,cv::Scalar(255, 255, 0));
@@ -278,17 +295,22 @@ void VisionTrackerClass::Process()
             {
                 c = m_CrossHair2;
             }
-            float cx = c.X;
+            float cx = c.Get_Average_X();
             float cy = c.Get_Average_Y();
+            float cxn = c.XNear;
+            float cxf = c.XFar;
             float cyn = c.YNear;
             float cyf = c.YFar;
             if (m_TargetX != INVALID_TARGET)
             {
+                cx = c.Get_X(m_TargetArea);
                 cy = c.Get_Y(m_TargetArea);
                 draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(m_TargetX),Normalized_Y_To_Pixel_Y(m_TargetY),12,1);
             }
             draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(cx),Normalized_Y_To_Pixel_Y(cy),32,2);
-            draw_calibration_range(m_Img,Normalized_X_To_Pixel_X(c.X),
+            draw_calibration_range(m_Img,
+                Normalized_X_To_Pixel_X(cxn),
+                Normalized_X_To_Pixel_X(cxf),
                 Normalized_Y_To_Pixel_Y(cyn),
                 Normalized_Y_To_Pixel_Y(cyf));
         }

@@ -14,7 +14,7 @@
 VisionServerClass g_VisionServer;
 VisionTrackerClass g_VisionTracker;
 
-const float MJPEG_TARGET_FRAME_TIME = 1.0f/30.0f;
+const float MJPEG_TARGET_FRAME_TIME = 1.0f/15.0f;
 
 
 /*

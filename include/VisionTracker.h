@@ -63,6 +63,7 @@ protected:
     float m_TargetX;
     float m_TargetY;
     float m_TargetArea;
+    int m_TargetContourIndex;
 
     CrossHairClass m_CrossHair;
     CrossHairClass m_CrossHair2;
