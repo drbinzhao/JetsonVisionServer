@@ -241,7 +241,6 @@ void VisionTrackerClass::Process()
 
            // cv::inRange(m_ImgHSV,cv::Scalar(40,167,193),cv::Scalar(119,255,255),m_Imgthresh);
             cv::inRange(m_ImgHSV,cv::Scalar(hmin,smin,vmin),cv::Scalar(hmax,smax,vmax),m_Imgthresh);
-            cv::dilate(m_Imgthresh, m_ImgDilated, cv::Mat(), cv::Point(-1, -1), 2);
             cv::findContours( m_Imgthresh, m_Contours, m_Hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
 
             if (m_Contours.size() > 0)
