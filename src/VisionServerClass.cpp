@@ -2,6 +2,10 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include <unistd.h>
+
+
+const char * SETTINGS_FILENAME = "/home/ubuntu/Documents/JetsonVisionServerSettings.txt";
 
 
 // Good info here: http://answers.opencv.org/question/6976/display-iplimage-in-webbrowsers/
@@ -14,14 +18,71 @@ VisionServerClass::VisionServerClass() :
     m_ArmAngle(0.0f),
     m_TargetX(0.0f),
     m_TargetY(0.0f),
-    m_VideoEnabled(0)
+    m_CrossHairX(0.0f),
+    m_CrossHairY(0.0f),
+    m_MjpegQuality(30),
+    m_FlipImage(false)
 {
     memset(m_ImageData,0,sizeof(m_ImageData));
+    Load_Settings();
+    Save_Settings();
 }
 
 VisionServerClass::~VisionServerClass()
 {
     //dtor
+}
+
+
+void VisionServerClass::Save_Settings()
+{
+    FILE * f = fopen(SETTINGS_FILENAME,"w");
+    if (f != NULL)
+    {
+        fprintf(f,"CrossHair %f %f\r\n",m_CrossHairX,m_CrossHairY);
+        fprintf(f,"MjpegQuality %d\r\n",m_MjpegQuality);
+        fclose(f);
+    }
+}
+void VisionServerClass::Load_Settings()
+{
+    FILE * f = fopen(SETTINGS_FILENAME,"r");
+    if (f != NULL)
+    {
+        char line[1024];
+        while (fgets(line, sizeof(line), f))
+        {
+            char *token = strtok(line," \r\n");
+
+            // handle the different cases of settings
+            if (strcmp(token,"CrossHair") == 0)
+            {
+                m_CrossHairX = atof(strtok(NULL," \r\n"));
+                m_CrossHairY = atof(strtok(NULL," \r\n"));
+            }
+            else if (strcmp(token,"MjpegQuality") == 0)
+            {
+                m_MjpegQuality = atoi(strtok(NULL," \r\n"));
+            }
+        }
+
+        fclose(f);
+        printf("Loaded Settings:\r\n");
+        printf(" CrossHair: %f, %f\r\n",m_CrossHairX,m_CrossHairY);
+        printf(" MjpegQuality: %d\r\n",m_MjpegQuality);
+    }
+    else
+    {
+        char dir_name[1024];
+        char * retval = getcwd(dir_name,sizeof(dir_name));
+        printf("Failed to load settings file: %s\r\n",SETTINGS_FILENAME);
+        if (retval != NULL)
+        {
+            printf(" Current directory: %s\r\n",dir_name);
+        }
+    }
+
+
 }
 
 void VisionServerClass::Send_Mjpg_Http_Header(int client_socket)
@@ -58,10 +119,6 @@ void VisionServerClass::Handle_Incoming_Message(int client_socket,char * msg)
         LOG(("Recognized HTTP GET from client: %d\r\n",client_socket));
         Send_Mjpg_Http_Header(client_socket);
         m_ClientsReadyForImages.insert(client_socket);
-    }
-    else
-    {
-        LOG(("NON-MJPEG Client!"));
     }
 
     // If this is a client that is watching the video feed, just ignore any messages from them
@@ -130,63 +187,100 @@ void VisionServerClass::Deliver_Next_Image_To_Clients(const unsigned char * imag
 
 void VisionServerClass::Handle_Command(int client_socket,char * cmd)
 {
+    // Super Simple command parsing... first character is the command, remaining are arguments
+    const char * params = "";
+    if (strlen(cmd) > 2) { params = cmd + 2; }
 
     switch(cmd[0])
     {
         case '0':
             // Get target, send the latest data to this client
-            Cmd_Get_Target(client_socket,cmd);
+            Cmd_Get_Target(client_socket,params);
             break;
         case '1':
             // set the current arm angle
-            Cmd_Set_Arm_Angle(client_socket, cmd);
+            Cmd_Set_Arm_Angle(client_socket, params);
             break;
         case '2':
-            //enable and disable video box
-            Cmd_Video_Enable(client_socket, cmd);
+            // set image flipping
+            Cmd_Flip_Image(client_socket, params);
             break;
+        case '3':
+            // set mjpeg quality
+            Cmd_Set_Mjpeg_Quality(client_socket, params);
+            break;
+
+        case '4':
+            // Set targetting calibration
+            Cmd_Set_Cross_Hair(client_socket,params);
+            break;
+
         case 'q':
-            Cmd_Shutdown(client_socket, cmd);
+            Cmd_Shutdown(client_socket, params);
             break;
         default:
             // show options to the client
-            Cmd_Help(client_socket,cmd);
+            Cmd_Help(client_socket,params);
             break;
     }
 }
 
-void VisionServerClass::Cmd_Help(int client_socket, char * cmd)
+void VisionServerClass::Cmd_Help(int client_socket, const char * params)
 {
-    Send_String(client_socket, cmd);
+    Send_String(client_socket, params);
     Send_String(client_socket, "Command:\r\n");
     Send_String(client_socket," 0 - returns target x y\r\n");
     Send_String(client_socket," 1 <armangle> - set the arm angle\r\n");
-    Send_String(client_socket," 2 <videoenable> - enable and disable video window\r\n");
+    Send_String(client_socket," 2 <flip image> - flip image (0 or 1)\r\n");
+    Send_String(client_socket," 3 <mjpg quality> - set mjpeg quality (0-100)\r\n");
+    Send_String(client_socket," 4 set crosshair coords to current target \r\n");
+
     Send_String(client_socket," q - SHUTDOWN\r\n");
 }
-void VisionServerClass::Cmd_Shutdown(int client_socket,char * cmd)
+
+void VisionServerClass::Cmd_Shutdown(int client_socket,const char * params)
 {
-    system("pwd");
-    system("sudo ~/Killscript.sh");
+    int success;
+    success = system("sudo ~/Killscript.sh");
+    if (success == 0)
+    {
+        printf("system call failed.");
+    }
 }
 
-void VisionServerClass::Cmd_Get_Target(int client_socket,char * cmd)
+void VisionServerClass::Cmd_Get_Target(int client_socket,const char * params)
 {
     char buf[1024];
     sprintf(buf,"0 %10.6g %10.6g\r\n",m_TargetX, m_TargetY);
     Send_String(client_socket,buf);
 }
 
-void VisionServerClass::Cmd_Set_Arm_Angle(int client_socket,char * cmd)
+void VisionServerClass::Cmd_Set_Arm_Angle(int client_socket,const char * params)
 {
     float rads;
-    sscanf(cmd,"1 %f",&rads);
+    sscanf(params,"%f",&rads);
     m_ArmAngle = rads;
 }
-void VisionServerClass::Cmd_Video_Enable(int client_socket, char * cmd)
+
+void VisionServerClass::Cmd_Flip_Image(int client_socket,const char *params)
 {
     int value;
-    sscanf(cmd,"2 %d",&value);
-    m_VideoEnabled = value;
+    sscanf(params,"%d",&value);
+    m_FlipImage = (value != 0);
+}
+
+void VisionServerClass::Cmd_Set_Mjpeg_Quality(int client_socket, const char * params)
+{
+    int value;
+    sscanf(params,"%d",&value);
+    m_MjpegQuality = value;
+    Save_Settings();
+}
+
+void VisionServerClass::Cmd_Set_Cross_Hair(int client_socket,const char * params)
+{
+    m_CrossHairX = m_TargetX;
+    m_CrossHairY = m_TargetY;
+    Save_Settings();
 }
 

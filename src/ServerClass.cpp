@@ -16,13 +16,16 @@ FILE * g_DebugFile = NULL;
 ServerClass::ServerClass()
 {
     //ctor
-     g_DebugFile = fopen("ServerDump.bin","w");
+    //g_DebugFile = fopen("ServerDump.bin","w");
+    g_DebugFile = NULL; // disable server dump file
 }
 
 ServerClass::~ServerClass()
 {
     //dtor
-    fclose(g_DebugFile);
+    if (g_DebugFile != NULL) {
+        fclose(g_DebugFile);
+    }
 }
 
 void ServerClass::Init(int port)

@@ -16,17 +16,15 @@
 					<Add directory="include" />
 				</Compiler>
 				<Linker>
-					<Add library="/usr/lib/libopencv_tegra.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_video.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_core.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_objdetect.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_vstab.so.2.4" />
-					<Add library="/usr/lib/libopencv_imuvstab.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_legacy.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_vstab.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_esm_panorama.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_highgui.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_imgproc.so.2.4.12" />
+					<Add library="/usr/local/lib/libopencv_video.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_core.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_objdetect.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_videostab.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_highgui.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_imgproc.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_imgcodecs.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_videoio.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_core.so.3.0" />
 				</Linker>
 			</Target>
 			<Target title="Release">
@@ -40,28 +38,23 @@
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
-					<Add library="/usr/lib/libopencv_tegra.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_video.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_core.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_objdetect.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_vstab.so.2.4" />
-					<Add library="/usr/lib/libopencv_imuvstab.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_legacy.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_vstab.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_esm_panorama.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_highgui.so.2.4.12" />
-					<Add library="/usr/lib/libopencv_imgproc.so.2.4.12" />
+					<Add library="/usr/local/lib/libopencv_video.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_core.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_objdetect.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_videostab.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_highgui.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_imgproc.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_imgcodecs.so.3.0.0" />
+					<Add library="/usr/local/lib/libopencv_videoio.so.3.0.0" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="include/OpenCVTest.h" />
 		<Unit filename="include/ServerClass.h" />
 		<Unit filename="include/VisionServerClass.h" />
 		<Unit filename="include/VisionTracker.h" />
-		<Unit filename="src/OpenCVTest.cpp" />
 		<Unit filename="src/ServerClass.cpp" />
 		<Unit filename="src/VisionServerClass.cpp" />
 		<Unit filename="src/VisionTracker.cpp" />

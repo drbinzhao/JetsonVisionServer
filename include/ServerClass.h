@@ -7,7 +7,7 @@
 #include <set>
 
 
-#if 1
+#if 0
 #define LOG(x)  printf x
 #else
 #define LOG(x)

@@ -24,14 +24,22 @@ class VisionServerClass : public ServerClass
 
         // Vision data interface, accept commands from the robo-rio and send targetting data
         void Handle_Command(int client_socket,char * cmd);
-        void Cmd_Shutdown(int client_socket,char * cmd);
-        void Cmd_Get_Target(int client_socket,char * cmd);
-        void Cmd_Set_Arm_Angle(int client_socket,char * cmd);
-        void Cmd_Help(int client_socket, char * cmd);
-        void Cmd_Video_Enable(int client_socket, char * cmd);
+
+        void Cmd_Help(int client_socket, const char * params);
+        void Cmd_Shutdown(int client_socket,const char * params);
+
+        void Cmd_Get_Target(int client_socket,const char * params);
+        void Cmd_Set_Arm_Angle(int client_socket,const char * params);
+        void Cmd_Flip_Image(int client_socket,const char *params);
+        void Cmd_Set_Mjpeg_Quality(int client_socket, const char * params);
+        void Cmd_Set_Cross_Hair(int client_socket,const char * params);
+
         void Set_Target(float x, float y){m_TargetX = x; m_TargetY = y;}
         float Get_Arm_Angle(void){return m_ArmAngle;}
-        int Get_Video_Enable() {return m_VideoEnabled;}
+        int Get_Mjpeg_Quality() {return m_MjpegQuality; }
+        bool Get_Flip_Image() { return m_FlipImage; }
+        float Get_Cross_Hair_X() { return m_CrossHairX; }
+        float Get_Cross_Hair_Y() { return m_CrossHairY; }
 
     protected:
 
@@ -39,6 +47,9 @@ class VisionServerClass : public ServerClass
         virtual void Handle_New_Client_Connected(int client_socket);
         virtual void Handle_Client_Disconnected(int client_socket);
         virtual void Handle_Incoming_Message(int client_socket,char * msg);
+
+        void Save_Settings();
+        void Load_Settings();
 
     private:
 
@@ -52,8 +63,12 @@ class VisionServerClass : public ServerClass
         float m_ArmAngle;
         float m_TargetX;
         float m_TargetY;
+        float m_CrossHairX;
+        float m_CrossHairY;
 
-        int m_VideoEnabled;
+        int m_MjpegQuality;
+        bool m_FlipImage;
+
 };
 
 #endif // MJPGSERVERCLASS_H

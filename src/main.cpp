@@ -1,7 +1,7 @@
 #include "ServerClass.h"
 #include "VisionServerClass.h"
 #include "VisionTracker.h"
-#include "OpenCVTest.h"
+//#include "OpenCVTest.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -14,7 +14,7 @@
 VisionServerClass g_VisionServer;
 VisionTrackerClass g_VisionTracker;
 
-
+const float MJPEG_TARGET_FRAME_TIME = 1.0f/30.0f;
 
 
 /*
@@ -46,7 +46,11 @@ void Load_File(const char * name,unsigned char ** out_data, unsigned int * out_d
         // allocate memory and read in the bytes
         data = new unsigned char[data_size];
         memset(data,0,data_size);
-        fread(data,1,data_size,f);
+        int bytes_read = fread(data,1,data_size,f);
+        if (bytes_read != (int)data_size)
+        {
+            printf("Reading file %s expected %d bytes but got %d\r\n",name,data_size,bytes_read);
+        }
         fclose(f);
     }
 
@@ -95,9 +99,12 @@ void Test_Vision_Tracker()
 int main(int argc,char ** argv)
 {
     printf("987 Jetson Vision Server...\r\n");
-    char dir[1024];
-    getcwd(dir,sizeof(dir));
-    printf("Current Directory: %s\r\n",dir);
+    char buf[1024];
+    char * dir = getcwd(buf,sizeof(buf));
+    if (dir != NULL)
+    {
+        printf("Current Directory: %s\r\n",dir);
+    }
 
     // Print out the arguments for Debugging
     printf("%d args\r\n",argc);
@@ -131,13 +138,20 @@ int main(int argc,char ** argv)
 
         // pass data between systems
         g_VisionServer.Set_Target(g_VisionTracker.Get_Target_X(),g_VisionTracker.Get_Target_Y());
+        g_VisionTracker.Set_Cross_Hair_X(g_VisionServer.Get_Cross_Hair_X());
+        g_VisionTracker.Set_Cross_Hair_Y(g_VisionServer.Get_Cross_Hair_Y());
+        g_VisionTracker.Set_Flip_Image(g_VisionServer.Get_Flip_Image());
 
         if (g_VisionTracker.New_Image_Processed())
         {
-            unsigned char * data;
-            unsigned int byte_count;
-            g_VisionTracker.Get_Image(&data,&byte_count);
-            g_VisionServer.Send_New_Image(data,byte_count);
+            // limit the framerate of the mjpeg stream
+            if (g_VisionTracker.Get_Time_Elapsed_Since_Last_Frame_Get() > MJPEG_TARGET_FRAME_TIME)
+            {
+                unsigned char * data;
+                unsigned int byte_count;
+                g_VisionTracker.Get_Image(&data,&byte_count,g_VisionServer.Get_Mjpeg_Quality());
+                g_VisionServer.Send_New_Image(data,byte_count);
+            }
         }
     }
 
