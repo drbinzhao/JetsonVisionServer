@@ -11,7 +11,7 @@
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
 
-int hmin=46; //50
+int hmin = 52; //46
 int hmax = 96;
 int smin=60;
 int smax=255;
@@ -253,10 +253,10 @@ void VisionTrackerClass::Process()
                         }
 
                         // if this target is the same contour index, give it a little boost in area
-                        if (i == m_TargetContourIndex)
-                        {
-                            area += 175.0f;
-                        }
+                        //if (i == m_TargetContourIndex)
+                        //{
+                        //   area += 20.0f;
+                        //}
 
                         if (area > best_area)
                         {
