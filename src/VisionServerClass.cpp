@@ -164,7 +164,7 @@ void VisionServerClass::Cmd_Shutdown(int client_socket,char * cmd)
 void VisionServerClass::Cmd_Get_Target(int client_socket,char * cmd)
 {
     char buf[1024];
-    sprintf(buf,"0 %10.6f %10.6f\r\n",m_TargetX, m_TargetY);
+    sprintf(buf,"0 %10.6g %10.6g\r\n",m_TargetX, m_TargetY);
     Send_String(client_socket,buf);
 }
 

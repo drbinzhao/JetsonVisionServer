@@ -25,8 +25,8 @@ public:
 
 protected:
 
-    cv::VideoCapture * m_VideoCap;
-
+  //  cv::VideoCapture * m_VideoCap;
+    CvCapture *m_VideoCap;
     cv::Mat m_Img;
     cv::Mat m_ImgHSV;
     cv::Mat m_Imgthresh;

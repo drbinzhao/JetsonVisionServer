@@ -9,6 +9,14 @@
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
 
+int hmin=39;
+int hmax = 96;
+int smin=184;
+int smax=255;
+int vmin =75;
+int vmax = 255;
+
+bool Debug = false;
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {
@@ -43,7 +51,8 @@ VisionTrackerClass::~VisionTrackerClass()
 
 void VisionTrackerClass::Init()
 {
-    m_VideoCap = new cv::VideoCapture(0);
+   /*
+    m_VideoCap = new cv::VideoCapture(0); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs first when this program is ran
     if (!m_VideoCap->isOpened())
     {
         return;
@@ -54,17 +63,35 @@ void VisionTrackerClass::Init()
     int h = m_VideoCap->get(CV_CAP_PROP_FRAME_HEIGHT);
     printf("Camera initial size: %d x %d\r\n",w,h);
 
-    m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,320);
-    m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,240);
+   // m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,320);
+   // m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,240); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs again when this program is ran
+   m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,1280);
+    m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,960);
     m_VideoCap->set(CV_CAP_PROP_BRIGHTNESS,0);
     m_VideoCap->set(CV_CAP_PROP_EXPOSURE,10);
 
     w = m_VideoCap->get(CV_CAP_PROP_FRAME_WIDTH);
     h = m_VideoCap->get(CV_CAP_PROP_FRAME_HEIGHT);
-    printf("Camera opened: %d x %d\r\n",w,h);
+    printf("Camera opened: %d x %d x\r\n",w,h);
+*/
+
+    m_VideoCap = cvCaptureFromCAM(0);
+
+	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_WIDTH,160);
+	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_HEIGHT,120);
+	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_BRIGHTNESS,0);
 
     cv::namedWindow("Video",0);
     cv::waitKey(1);
+    if(Debug == true)
+    {
+         cv::createTrackbar( "hmin:", "Video", &hmin, 255, NULL );
+         cv::createTrackbar( "hmax:", "Video", &hmax, 255, NULL );
+         cv::createTrackbar( "smin:", "Video", &smin, 255, NULL );
+         cv::createTrackbar( "smax:", "Video", &smax, 255, NULL );
+         cv::createTrackbar( "vmin:", "Video", &vmin, 255, NULL );
+         cv::createTrackbar( "vmax:", "Video", &vmax, 255, NULL );
+     }
 }
 
 void VisionTrackerClass::Shutdown()
@@ -77,8 +104,8 @@ void VisionTrackerClass::Shutdown()
 void VisionTrackerClass::Process()
 {
     unsigned int i;
-    bool got_frame = m_VideoCap->read(m_Img);
-
+    bool got_frame = true;//m_VideoCap->read(m_Img);
+    m_Img=cv::cvarrToMat(cvQueryFrame(m_VideoCap));
     if (got_frame && (m_Img.empty() == false))
     {
         int d = 0;
@@ -87,7 +114,8 @@ void VisionTrackerClass::Process()
         m_NewImageProcessed = true;
 
         cv::cvtColor(m_Img,m_ImgHSV,cv::COLOR_BGR2HSV);
-        cv::inRange(m_ImgHSV,cv::Scalar(40,167,193),cv::Scalar(119,255,255),m_Imgthresh);
+       // cv::inRange(m_ImgHSV,cv::Scalar(40,167,193),cv::Scalar(119,255,255),m_Imgthresh);
+        cv::inRange(m_ImgHSV,cv::Scalar(hmin,smin,vmin),cv::Scalar(hmax,smax,vmax),m_Imgthresh);
         cv::dilate(m_Imgthresh, m_ImgDilated, cv::Mat(), cv::Point(-1, -1), 2);
         cv::findContours( m_ImgDilated, m_Contours, m_Hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
 
@@ -95,7 +123,7 @@ void VisionTrackerClass::Process()
         for( i = 0; i < m_Contours.size(); i++)
         {
             float area = cv::contourArea(m_Contours[i]);
-            if(area < 50)
+            if(area < 2000)
             {
                 m_Contours.erase(m_Contours.begin() + i);
                 d++;
@@ -117,7 +145,7 @@ void VisionTrackerClass::Process()
                     best_contour = i;
                 }
                 cv::Scalar color = cv::Scalar( 0, 0, 255);
-                cv::drawContours( m_Img, m_Contours, i, color, 2, 8, m_Hierarchy, 0, cv::Point(0, 0));
+                cv::drawContours( m_Img, m_Contours, i, color, 1, 4, m_Hierarchy, 0, cv::Point(0, 0));
             }
 
             // Set Targetx, Targety based on the best contour we found
@@ -128,7 +156,6 @@ void VisionTrackerClass::Process()
             // Draw the rect on our image
             draw_rotated_rect(m_Img,rect,cv::Scalar( 255, 0, 0));
         }
-
 
         // measure framerate of the overall system (from last time we updated to this time)
         double t = cv::getTickCount();

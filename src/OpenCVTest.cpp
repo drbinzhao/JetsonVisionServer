@@ -36,7 +36,7 @@ void Track()
     cv_cap->set(CV_CAP_PROP_FRAME_WIDTH,320);
     cv_cap->set(CV_CAP_PROP_FRAME_HEIGHT,240);
     cv_cap->set(CV_CAP_PROP_BRIGHTNESS,0);
-    cv_cap->set(CV_CAP_PROP_EXPOSURE,10);
+    cv_cap->set(CV_CAP_PROP_EXPOSURE,0);
 
     w = cv_cap->get(CV_CAP_PROP_FRAME_WIDTH);
     h = cv_cap->get(CV_CAP_PROP_FRAME_HEIGHT);
