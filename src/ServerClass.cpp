@@ -211,7 +211,7 @@ void ServerClass::Send_String(int client_socket,const char * msg)
     {
         fprintf(stderr,"send failed, error: %d\n",errno);
     }
-    LOG(("send: %s\n",msg));
+    LOG_SEND(("send: %s",msg));
 }
 
 void ServerClass::Send_Binary_Data(int client_socket,const char * data,int data_size)
@@ -221,7 +221,7 @@ void ServerClass::Send_Binary_Data(int client_socket,const char * data,int data_
     {
         fprintf(stderr,"send failed, error: %d\n",errno);
     }
-    LOG(("send binary data, %d bytes\r\n\r\n",data_size));
+    LOG_SEND(("send binary data, %d bytes\r\n",data_size));
 }
 
 void ServerClass::Send_Binary_Data_Chunks(int client_socket,const char * data,int data_size)

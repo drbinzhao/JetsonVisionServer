@@ -94,10 +94,29 @@ void Test_Vision_Tracker()
 
 int main(int argc,char ** argv)
 {
+    printf("987 Jetson Vision Server...\r\n");
     char dir[1024];
     getcwd(dir,sizeof(dir));
     printf("Current Directory: %s\r\n",dir);
 
+    // Print out the arguments for Debugging
+    printf("%d args\r\n",argc);
+    for (int i=0; i<argc; ++i)
+    {
+        printf("arg[%d] %s\r\n",i,argv[i]);
+    }
+
+    // First argument after the program name is the number of seconds to delay
+    if (argc > 1)
+    {
+        int delay = atoi(argv[1]);
+        if (delay > 0) {
+            printf("delaying startup for %d seconds...\r\n",delay);
+            sleep(delay);
+        }
+    }
+
+    printf("Starting up!\r\n");
     g_VisionServer.Init(9870);
     g_VisionTracker.Init();
 

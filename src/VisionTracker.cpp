@@ -51,7 +51,7 @@ VisionTrackerClass::~VisionTrackerClass()
 
 void VisionTrackerClass::Init()
 {
-   /*
+
     m_VideoCap = new cv::VideoCapture(0); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs first when this program is ran
     if (!m_VideoCap->isOpened())
     {
@@ -63,23 +63,22 @@ void VisionTrackerClass::Init()
     int h = m_VideoCap->get(CV_CAP_PROP_FRAME_HEIGHT);
     printf("Camera initial size: %d x %d\r\n",w,h);
 
-   // m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,320);
-   // m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,240); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs again when this program is ran
-   m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,1280);
-    m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,960);
+ //   m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,320);
+  //  m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,240); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs again when this program is ran
+    //m_VideoCap->set(CV_CAP_PROP_FRAME_WIDTH,1280);
+    //m_VideoCap->set(CV_CAP_PROP_FRAME_HEIGHT,960);
     m_VideoCap->set(CV_CAP_PROP_BRIGHTNESS,0);
     m_VideoCap->set(CV_CAP_PROP_EXPOSURE,10);
 
     w = m_VideoCap->get(CV_CAP_PROP_FRAME_WIDTH);
     h = m_VideoCap->get(CV_CAP_PROP_FRAME_HEIGHT);
     printf("Camera opened: %d x %d x\r\n",w,h);
-*/
 
-    m_VideoCap = cvCaptureFromCAM(0);
+    //m_VideoCap = cvCaptureFromCAM(0);
 
-	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_WIDTH,160);
-	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_HEIGHT,120);
-	cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_BRIGHTNESS,0);
+	//cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_WIDTH,160);
+	//cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_FRAME_HEIGHT,120);
+	//cvSetCaptureProperty(m_VideoCap, CV_CAP_PROP_BRIGHTNESS,0);
 
     cv::namedWindow("Video",0);
     cv::waitKey(1);
@@ -104,8 +103,8 @@ void VisionTrackerClass::Shutdown()
 void VisionTrackerClass::Process()
 {
     unsigned int i;
-    bool got_frame = true;//m_VideoCap->read(m_Img);
-    m_Img=cv::cvarrToMat(cvQueryFrame(m_VideoCap));
+    bool got_frame = m_VideoCap->read(m_Img);
+    //m_Img=cv::cvarrToMat(cvQueryFrame(m_VideoCap));
     if (got_frame && (m_Img.empty() == false))
     {
         int d = 0;
@@ -154,7 +153,7 @@ void VisionTrackerClass::Process()
             m_TargetY = rect.center.y;
 
             // Draw the rect on our image
-            draw_rotated_rect(m_Img,rect,cv::Scalar( 255, 0, 0));
+            draw_rotated_rect(m_Img,rect,cv::Scalar(255, 0, 0));
         }
 
         // measure framerate of the overall system (from last time we updated to this time)

@@ -13,6 +13,11 @@
 #define LOG(x)
 #endif
 
+#if 0
+#define LOG_SEND(x)  printf x
+#else
+#define LOG_SEND(x)
+#endif
 
 
 class ServerClass

@@ -4,7 +4,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 
-#define INVALID_TARGET -100000.0f
+#define INVALID_TARGET -1000.0f
 
 class VisionTrackerClass
 {
@@ -25,8 +25,8 @@ public:
 
 protected:
 
-  //  cv::VideoCapture * m_VideoCap;
-    CvCapture *m_VideoCap;
+    cv::VideoCapture * m_VideoCap;
+    //CvCapture *m_VideoCap;
     cv::Mat m_Img;
     cv::Mat m_ImgHSV;
     cv::Mat m_Imgthresh;

@@ -1,5 +1,6 @@
 #include "VisionServerClass.h"
 #include "stdio.h"
+#include "stdlib.h"
 #include "string.h"
 
 
@@ -49,11 +50,18 @@ void VisionServerClass::Handle_Incoming_Message(int client_socket,char * msg)
     LOG(("Incoming message: %s\r\n",msg));
 
     // if its an HTTP GET, send the header and start sending images
-    if (strncmp(msg,"GET / HTTP",10) == 0)
+    //bool is_mjpeg_connection = (strncmp(msg,"GET / HTTP",10) == 0);  //smart dash sends 'GET /mjpg/video.mjpg...'
+    bool is_mjpeg_connection = (strncmp(msg,"GET",3) == 0);
+
+    if (is_mjpeg_connection)
     {
         LOG(("Recognized HTTP GET from client: %d\r\n",client_socket));
         Send_Mjpg_Http_Header(client_socket);
         m_ClientsReadyForImages.insert(client_socket);
+    }
+    else
+    {
+        LOG(("NON-MJPEG Client!"));
     }
 
     // If this is a client that is watching the video feed, just ignore any messages from them
@@ -100,7 +108,7 @@ void VisionServerClass::Deliver_Next_Image_To_Clients(const unsigned char * imag
     for (it = m_ClientsReadyForImages.begin(); it != m_ClientsReadyForImages.end(); ++it)
     {
         int client_sock = *it;
-        LOG(("Sending image to socket: %d size: %d\r\n",client_sock,image_data_size));
+        LOG_SEND(("Sending image to socket: %d size: %d\r\n",client_sock,image_data_size));
 
         static char tmp[2048];
         sprintf(tmp,"--myboundary\r\n"
@@ -113,9 +121,6 @@ void VisionServerClass::Deliver_Next_Image_To_Clients(const unsigned char * imag
     }
 }
 
-
-
-
 //////////////////////////////////////////////////////////////////////////////////////////
 //
 //  Vision Data System, accept commands from the robo-rio, send data back
@@ -125,6 +130,7 @@ void VisionServerClass::Deliver_Next_Image_To_Clients(const unsigned char * imag
 
 void VisionServerClass::Handle_Command(int client_socket,char * cmd)
 {
+
     switch(cmd[0])
     {
         case '0':
@@ -138,6 +144,9 @@ void VisionServerClass::Handle_Command(int client_socket,char * cmd)
         case '2':
             //enable and disable video box
             Cmd_Video_Enable(client_socket, cmd);
+            break;
+        case 'q':
+            Cmd_Shutdown(client_socket, cmd);
             break;
         default:
             // show options to the client
@@ -157,8 +166,8 @@ void VisionServerClass::Cmd_Help(int client_socket, char * cmd)
 }
 void VisionServerClass::Cmd_Shutdown(int client_socket,char * cmd)
 {
-    //system("pwd");
-    //system("/home/team987/KillScript.sh");
+    system("pwd");
+    system("sudo ~/Killscript.sh");
 }
 
 void VisionServerClass::Cmd_Get_Target(int client_socket,char * cmd)
