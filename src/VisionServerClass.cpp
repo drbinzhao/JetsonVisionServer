@@ -265,7 +265,7 @@ void VisionServerClass::Cmd_Shutdown(int client_socket,const char * params)
 void VisionServerClass::Cmd_Get_Target(int client_socket,const char * params)
 {
     char buf[1024];
-    sprintf(buf,"0 %10.6g %10.6g %10.6g\r\n",m_TargetX, m_TargetY, m_TargetArea);
+    sprintf(buf,"0 %.4f %.4f %.4f\r\n",m_TargetX, m_TargetY, m_TargetArea);
     Send_String(client_socket,buf);
 }
 
@@ -325,7 +325,7 @@ void VisionServerClass::Cmd_Get_Cross_Hair(int client_socket,const char * params
     {
         y = c.Get_Y(m_TargetArea);
     }
-    sprintf(buf,"5 %10.6g %10.6g\r\n",x, y);
+    sprintf(buf,"5 %.4f %.4f\r\n",x, y);
     Send_String(client_socket,buf);
 }
 

@@ -225,20 +225,22 @@ int ServerClass::Send(int client_socket,const char * data,unsigned int bytes,uns
 
 void ServerClass::Send_String(int client_socket,const char * msg)
 {
-    int status = Send(client_socket,msg,strlen(msg),0); //MSG_NOSIGNAL);
+    int status = Send(client_socket,msg,strlen(msg),MSG_NOSIGNAL);
     if (status == -1)
     {
         fprintf(stderr,"send failed, error: %d\n",errno);
+        perror("Error info:");
     }
     LOG_SEND(("send: %s",msg));
 }
 
 void ServerClass::Send_Binary_Data(int client_socket,const char * data,int data_size)
 {
-    int status = Send(client_socket,data,data_size,0); //MSG_NOSIGNAL);
+    int status = Send(client_socket,data,data_size,MSG_NOSIGNAL);
     if (status == -1)
     {
         fprintf(stderr,"send failed, error: %d\n",errno);
+        perror("Error info:");
     }
     LOG_SEND(("send binary data, %d bytes\r\n",data_size));
 }
@@ -254,10 +256,11 @@ void ServerClass::Send_Binary_Data_Chunks(int client_socket,const char * data,in
             send_bytes = data_size;
         }
 
-        int status = Send(client_socket,ptr,send_bytes,0); //MSG_NOSIGNAL);
+        int status = Send(client_socket,ptr,send_bytes,MSG_NOSIGNAL);
         if (status == -1)
         {
             fprintf(stderr,"send failed, error: %d\n",errno);
+            perror("Error info:");
         }
         ptr += send_bytes;
         data_size -= send_bytes;

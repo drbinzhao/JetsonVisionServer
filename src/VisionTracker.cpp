@@ -15,7 +15,7 @@ int hmin=46;
 int hmax = 96;
 int smin=60;
 int smax=255;
-int vmin =40;
+int vmin =50;
 int vmax = 255;
 int brightness = 10;
 int exposure = 10;
@@ -32,20 +32,19 @@ inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar 
    {
         vertices[i] = vertices2f[i];
    }
-   for(int i = 1; i < 4; ++i)
-   {
-        cv::line(image,vertices[i-1],vertices[i],color,2);
-   }
+    cv::line(image,vertices[0],vertices[1],color,2);
+    cv::line(image,vertices[1],vertices[2],color,2);
+    cv::line(image,vertices[2],vertices[3],color,2);
+    cv::line(image,vertices[3],vertices[0],color,2);
 }
 
-inline void draw_cross_hair(cv::Mat& image,float cx, float cy)
+inline void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
 {
-    const float LEN = 32;
     const float GAP = 4;
-    cv::line(image,cv::Point(cx,cy-LEN),cv::Point(cx,cy-GAP),cv::Scalar(255.0,255.0,255.0),2);
-    cv::line(image,cv::Point(cx,cy+GAP),cv::Point(cx,cy+LEN),cv::Scalar(255.0,255.0,255.0),2);
-    cv::line(image,cv::Point(cx-LEN,cy),cv::Point(cx-GAP,cy),cv::Scalar(255.0,255.0,255.0),2);
-    cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+LEN,cy),cv::Scalar(255.0,255.0,255.0),2);
+    cv::line(image,cv::Point(cx,cy-len),cv::Point(cx,cy-GAP),cv::Scalar(255.0,255.0,255.0),thick);
+    cv::line(image,cv::Point(cx,cy+GAP),cv::Point(cx,cy+len),cv::Scalar(255.0,255.0,255.0),thick);
+    cv::line(image,cv::Point(cx-len,cy),cv::Point(cx-GAP,cy),cv::Scalar(255.0,255.0,255.0),thick);
+    cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+len,cy),cv::Scalar(255.0,255.0,255.0),thick);
 }
 
 inline void draw_calibration_range(cv::Mat& image,float cx, float cynear,float cyfar)
@@ -201,8 +200,11 @@ void VisionTrackerClass::Process()
         // When we're using the 'EqualizeImage' feature, we aren't tracking
         if (m_EqualizeImage)
         {
-            cv::cvtColor(m_Img,m_TmpImg,cv::COLOR_BGR2GRAY);
-            cv::equalizeHist(m_TmpImg, m_Img);
+            const float CONTRAST_MULT = 16.0f;
+            m_Img.convertTo(m_TmpImg,-1,CONTRAST_MULT,0.0);
+            m_TmpImg = m_Img;
+            //cv::cvtColor(m_Img,m_TmpImg,cv::COLOR_BGR2GRAY);
+            //cv::equalizeHist(m_TmpImg, m_Img);
         }
         else
         {
@@ -213,29 +215,6 @@ void VisionTrackerClass::Process()
             cv::dilate(m_Imgthresh, m_ImgDilated, cv::Mat(), cv::Point(-1, -1), 2);
             cv::findContours( m_Imgthresh, m_Contours, m_Hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
 
-            // Eliminate some 'false-positive' contours
-           //  printf("begn: %d\r\n",(int)m_Contours.size());
-           /*
-            for( int i = 0; i < m_Contours.size(); i++)
-            {
-                float area = cv::contourArea(m_Contours[i]);
-
-                if(area < 50)
-                {
-                // printf("delete: %f\r\n",area);
-                    m_Contours.erase(m_Contours.begin()+i);
-
-                    d++;
-                }
-                else
-                {
-                    m_Goodcontours.insert(m_Goodcontours.begin()+m_Goodcontours.size(),m_Contours[i]);
-                }
-            }
-    */
-
-            // If we have contours left, try to pick the best target
-            //   printf("remaining: %d\r\n",(int)m_Goodcontours.size());
             if (m_Contours.size() > 0)
             {
                 int best_contour = -1;
@@ -244,7 +223,7 @@ void VisionTrackerClass::Process()
                 for( unsigned int i = 0; i < m_Contours.size(); i++)
                 {
                     float area = Pixel_Area_To_Normalized_Area(cv::contourArea(m_Contours[i]));
-                    if(area > 150.0f/(320.0f*240.0f))
+                    if(area > 100.0f/(320.0f*240.0f))
                     {
                         // If we had a good target last frame, slightly prefer to aim at it...
                         if ((m_TargetX != INVALID_TARGET) && (m_TargetY != INVALID_TARGET))
@@ -268,9 +247,10 @@ void VisionTrackerClass::Process()
                             best_area = area;
                             best_contour = i;
                         }
+
+                        cv::Scalar color = cv::Scalar( 0, 0, 255);
+                        cv::drawContours( m_Img, m_Contours, i, color, 1, 4, m_Hierarchy, 0, cv::Point(0, 0));
                     }
-                    cv::Scalar color = cv::Scalar( 0, 0, 255);
-                    cv::drawContours( m_Img, m_Contours, i, color, 1, 4, m_Hierarchy, 0, cv::Point(0, 0));
                 }
                 // Set Targetx, Targety based on the best contour we found
                 if (best_contour != -1)
@@ -305,8 +285,9 @@ void VisionTrackerClass::Process()
             if (m_TargetX != INVALID_TARGET)
             {
                 cy = c.Get_Y(m_TargetArea);
+                draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(m_TargetX),Normalized_Y_To_Pixel_Y(m_TargetY),12,1);
             }
-            draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(cx),Normalized_Y_To_Pixel_Y(cy));
+            draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(cx),Normalized_Y_To_Pixel_Y(cy),32,2);
             draw_calibration_range(m_Img,Normalized_X_To_Pixel_X(c.X),
                 Normalized_Y_To_Pixel_Y(cyn),
                 Normalized_Y_To_Pixel_Y(cyf));
@@ -331,7 +312,7 @@ void VisionTrackerClass::Process()
         // every 256 frames,print fps
         if ((m_FrameCounter & 0xFF) == 0)
         {
-            printf("fps: %f\r\n",m_FPS);
+            //printf("fps: %f\r\n",m_FPS);
         }
 
         // display the image on the desktop

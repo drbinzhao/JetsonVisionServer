@@ -49,5 +49,13 @@ float CrossHairClass::Get_Y(float area)
 {
    // return the Y value proportional to the area given
    float fraction = (area - AREA_NEAR) / (AREA_FAR - AREA_NEAR);
+   if(fraction < -0.25f)
+   {
+       fraction = -0.25f;
+   }
+   else if(fraction > 1.25f)
+   {
+       fraction = 1.25f;
+   }
    return YNear + fraction * (YFar - YNear);
 }
