@@ -21,7 +21,7 @@ int brightness = 10;
 int exposure = 10;
 int gain = 10;
 
-bool Debug = false;
+bool Debug = true;
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {
@@ -62,6 +62,7 @@ inline void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, flo
 
 VisionTrackerClass::VisionTrackerClass() :
     m_VideoCap(NULL),
+    m_VideoCap2(NULL),
     m_LastUpdateTime(0.0),
     m_ResolutionW(320.0f),
     m_ResolutionH(240.0f),
@@ -101,6 +102,7 @@ void VisionTrackerClass::Init()
     m_ResolutionH = 240;
 
     m_VideoCap = new cv::VideoCapture(0); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs first when this program is ran
+    m_VideoCap2 = new cv::VideoCapture(1);
     if (!m_VideoCap->isOpened())
     {
         return;
@@ -132,6 +134,7 @@ void VisionTrackerClass::Init()
          cv::createTrackbar( "vmax:", "Video", &vmax, 255, NULL );
          cv::namedWindow("Thres", 0);
          cv::namedWindow("DIL", 0);
+         cv::namedWindow("Video2",0);
      }
      cv::waitKey(1);
 }
@@ -139,8 +142,11 @@ void VisionTrackerClass::Init()
 void VisionTrackerClass::Shutdown()
 {
     delete m_VideoCap;
+    delete m_VideoCap2;
     m_VideoCap = NULL;
+    m_VideoCap2 = NULL;
     cv::destroyWindow("Video");
+    cv::destroyWindow("Video2");
     cv::destroyWindow("Thresh");
     cv::destroyWindow("DIL");
 }
@@ -182,6 +188,7 @@ float VisionTrackerClass::Normalized_Area_To_Pixel_Area(float na)
 void VisionTrackerClass::Process()
 {
     bool got_frame = m_VideoCap->read(m_Img);
+    bool got_frame2 = m_VideoCap2->read(m_Img2);
 
     if (got_frame && (m_Img.empty() == false))
     {
@@ -320,6 +327,7 @@ void VisionTrackerClass::Process()
         if(Debug)
         {
             cv::imshow("Video",m_Img);
+            cv::imshow("Video2",m_Img2);
             cv::imshow("Thres",m_Imgthresh);
             cv::imshow("DIL",m_ImgDilated);
 

@@ -41,8 +41,10 @@ protected:
 
 
     cv::VideoCapture * m_VideoCap;
+    cv::VideoCapture * m_VideoCap2;
     //CvCapture *m_VideoCap;
     cv::Mat m_Img;
+    cv::Mat m_Img2;
     cv::Mat m_TmpImg;
     cv::Mat m_ImgHSV;
     cv::Mat m_Imgthresh;
