@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <pthread.h>
 #include <string.h>
 
 
@@ -98,6 +99,8 @@ void Test_Vision_Tracker()
 
 int main(int argc,char ** argv)
 {
+
+    sleep(2);
     printf("987 Jetson Vision Server...\r\n");
     char buf[1024];
     char * dir = getcwd(buf,sizeof(buf));

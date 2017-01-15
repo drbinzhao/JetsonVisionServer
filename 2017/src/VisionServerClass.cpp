@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <math.h>
 #include "VisionTracker.h"
-
-
 const char * SETTINGS_FILENAME = "/home/ubuntu/Documents/JetsonVisionServerSettings.txt";
 
 

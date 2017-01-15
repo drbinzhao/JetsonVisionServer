@@ -7,6 +7,7 @@
 #include <VisionTracker.h>
 #include <opencv2/videoio/videoio.hpp>
 #include <iostream>
+#include <unistd.h>
 
 //cv::RNG rng(12345);
 //cv::Scalar color = cv::Scalar( rng.uniform(0, 1), rng.uniform(0, 1), rng.uniform(254, 255) );
@@ -21,7 +22,7 @@ int brightness = 10;
 int exposure = 10;
 int gain = 10;
 
-bool Debug = true;
+bool Debug = false;
 
 inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
 {
@@ -91,8 +92,7 @@ VisionTrackerClass::VisionTrackerClass() :
     */
 }
 
-VisionTrackerClass::~VisionTrackerClass()
-{
+VisionTrackerClass::~VisionTrackerClass(){
 }
 
 
@@ -103,6 +103,7 @@ void VisionTrackerClass::Init()
 
     m_VideoCap = new cv::VideoCapture(0); //this line is where the HIGHGUI ERROR V4L/V4L2 VIDIOC_S_CROP error occurs first when this program is ran
     m_VideoCap2 = new cv::VideoCapture(1);
+    sleep(1);
     if (!m_VideoCap->isOpened())
     {
         return;
@@ -117,6 +118,12 @@ void VisionTrackerClass::Init()
     m_VideoCap->set(cv::CAP_PROP_FRAME_HEIGHT,m_ResolutionH);
     m_VideoCap->set(cv::CAP_PROP_FPS, 125);
 
+    if(m_VideoCap2->isOpened())
+    {
+        m_VideoCap2->set(cv::CAP_PROP_FRAME_WIDTH,m_ResolutionW);
+        m_VideoCap2->set(cv::CAP_PROP_FRAME_HEIGHT,m_ResolutionH);
+        m_VideoCap2->set(cv::CAP_PROP_FPS, 125);
+    }
     // Store off the actual resolution the camera is running at
     m_ResolutionW = m_VideoCap->get(cv::CAP_PROP_FRAME_WIDTH);
     m_ResolutionH = m_VideoCap->get(cv::CAP_PROP_FRAME_HEIGHT);
@@ -187,6 +194,7 @@ float VisionTrackerClass::Normalized_Area_To_Pixel_Area(float na)
 
 void VisionTrackerClass::Process()
 {
+
     bool got_frame = m_VideoCap->read(m_Img);
     bool got_frame2 = m_VideoCap2->read(m_Img2);
 
@@ -326,8 +334,14 @@ void VisionTrackerClass::Process()
         // display the image on the desktop
         if(Debug)
         {
-            cv::imshow("Video",m_Img);
-            cv::imshow("Video2",m_Img2);
+            if(got_frame)
+            {
+                cv::imshow("Video",m_Img);
+            }
+            if(got_frame2)
+            {
+                cv::imshow("Video2",m_Img2);
+            }
             cv::imshow("Thres",m_Imgthresh);
             cv::imshow("DIL",m_ImgDilated);
 
@@ -350,11 +364,24 @@ void VisionTrackerClass::Get_Image(unsigned char ** data, unsigned int * byte_co
     params.push_back(quality);
 
     Print_FPS_On_Image(m_Img);
-    cv::imencode(".jpg", m_Img, m_JpegOutputBuffer, params);
+    cv::Mat combine(std::max(m_Img.size().height, m_Img2.size().height), m_Img.size().width + m_Img2.size().width, CV_8UC3);
+    if(m_Img.empty() == false)
+    {
+        cv::Mat left_roi(combine, cv::Rect(0, 0, m_Img.size().width, m_Img.size().height));
+        m_Img.copyTo(left_roi);
+    }
+    if(m_Img2.empty() == false)
+    {
+        cv::Mat right_roi(combine, cv::Rect(m_Img.size().width, 0, m_Img2.size().width, m_Img2.size().height));
+        m_Img2.copyTo(right_roi);
+    }
+
+    cv::imencode(".jpg", combine, m_JpegOutputBuffer, params);
 
     *data = &(m_JpegOutputBuffer[0]);
     *byte_count = m_JpegOutputBuffer.size();
 
     m_NewImageProcessed = false;
     m_TimeElapsedSinceLastFrameGet = 0.0f;
+
 }
