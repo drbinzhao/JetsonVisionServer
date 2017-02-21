@@ -12,4 +12,5 @@
 9. Install v4l2-ctl
 10. Conifgure CamerSetup.sh to run at startup
 11. Install V4L2 Utils
-12. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.012. Change USB port to 3.0
+12. Change USB port to 3.012
+13. Instructions for flashing Jetson image "http://www.jetsonhacks.com/2015/08/26/clone-image-nvidia-jetson-tk1/"
