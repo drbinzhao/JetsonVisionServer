@@ -34,6 +34,7 @@ class VisionServerClass : public ServerClass
         void Cmd_Set_Mjpeg_Quality(int client_socket, const char * params);
         void Cmd_Set_Cross_Hair(int client_socket,const char * params);
         void Cmd_Get_Cross_Hair(int client_socket,const char * params);
+        void Cmd_Set_Moving_Target_Offset(int client_socket,const char * params);
         void Cmd_Equalize_Image(int client_socket, const char * params);
         void Cmd_Camera_Mode(int client_socket, const char * params);
 
@@ -42,6 +43,8 @@ class VisionServerClass : public ServerClass
         float Get_Arm_Angle(void){return m_ArmAngle;}
         int Get_Mjpeg_Quality() {return m_MjpegQuality; }
         bool Get_Equalize_Image() { return m_EqualizeImage; }
+        float Get_Moving_Target_X() { return m_MovingTargetX; }
+        float Get_Moving_Target_Y() { return m_MovingTargetY; }
         CrossHairClass Get_Cross_Hair(){return m_CrossHair;}
 
 
@@ -69,6 +72,8 @@ class VisionServerClass : public ServerClass
         float m_TargetX;
         float m_TargetY;
         float m_TargetArea;
+        float m_MovingTargetX;
+        float m_MovingTargetY;
         CrossHairClass m_CrossHair;
 
         int m_MjpegQuality;

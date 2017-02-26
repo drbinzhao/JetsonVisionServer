@@ -41,8 +41,7 @@ bool Debug = false;
 
 
 
-
-inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) )
+inline void VisionTrackerClass::draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color)
 {
    cv::Point2f vertices2f[4];
    cv::Point vertices[4];
@@ -57,7 +56,7 @@ inline void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar 
     cv::line(image,vertices[3],vertices[0],color,2);
 }
 
-inline void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
+inline void VisionTrackerClass::draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
 {
     const float GAP = 4;
     cv::line(image,cv::Point(cx,cy-len),cv::Point(cx,cy-GAP),cv::Scalar(255.0,255.0,255.0),thick);
@@ -66,15 +65,31 @@ inline void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick)
     cv::line(image,cv::Point(cx+GAP,cy),cv::Point(cx+len,cy),cv::Scalar(255.0,255.0,255.0),thick);
 }
 
-inline void draw_aim_line(cv::Mat& image,float cx)
+inline void VisionTrackerClass::draw_aim_line(cv::Mat& image,float cx)
 {
     cv::line(image,cv::Point(cx,0),cv::Point(cx,image.rows),cv::Scalar(255.0,255.0,255.0),1);
 }
+inline void VisionTrackerClass::draw_moving_target_aim_line(cv::Mat& image,float cx,float X_Offset,float Y_Offset)
+{
+    //XOffset is in degrees, Y Offset is in RPM
+    const float FOV = 75.0f;
+    const int linetrim = 50;
 
-inline void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar)
+    float noffset = 0.5f + X_Offset/(0.5*FOV);
+    float ncx = Pixel_X_To_Normalized_X(cx);
+    float cxfinal = Normalized_X_To_Pixel_X(ncx+noffset);
+
+    cv::line(image,cv::Point(cxfinal,linetrim),cv::Point(cxfinal,image.rows - linetrim),cv::Scalar(200.0,200.0,255.0),1);
+
+
+    char buffer[128];
+    sprintf(buffer, "RPM: %.0f",m_MovingTargetY);
+    cv::putText(image, buffer, cv::Point(0, image.rows - 15), cv::FONT_HERSHEY_SIMPLEX, 0.4,cv::Scalar(200.0,200.0,255.0),1);
+}
+inline void VisionTrackerClass::draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar)
 {
     const float LEN = 4;
-    const float GAP = 10;
+    const float GAP = 0;
     cv::line(image,cv::Point(cxnear-GAP-LEN,cynear),cv::Point(cxnear-GAP,cynear),cv::Scalar(128.0,128.0,255.0),1);
     cv::line(image,cv::Point(cxfar-GAP-LEN,cyfar),cv::Point(cxfar-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
     cv::line(image,cv::Point(cxnear-GAP,cynear),cv::Point(cxfar-GAP,cyfar),cv::Scalar(128.0,128.0,255.0),1);
@@ -321,6 +336,7 @@ void VisionTrackerClass::Process()
                 draw_cross_hair(m_Img,Normalized_X_To_Pixel_X(m_TargetX),Normalized_Y_To_Pixel_Y(m_TargetY),12,1);
             }
             draw_aim_line(m_Img,Normalized_X_To_Pixel_X(cx));
+            draw_moving_target_aim_line(m_Img,Normalized_X_To_Pixel_X(cx),m_MovingTargetX,m_MovingTargetY);
             draw_calibration_range(m_Img,
               Normalized_X_To_Pixel_X(cxn),
               Normalized_X_To_Pixel_X(cxf),

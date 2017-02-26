@@ -222,6 +222,10 @@ void VisionServerClass::Handle_Command(int client_socket,char * cmd)
         case '7':
             Cmd_Camera_Mode(client_socket, params);
             break;
+        case '8':
+            //Roborio is updating moving target offset
+            Cmd_Set_Moving_Target_Offset(client_socket, params);
+            break;
         case 'q':
             Cmd_Shutdown(client_socket, params);
             break;
@@ -302,7 +306,13 @@ void VisionServerClass::Cmd_Get_Cross_Hair(int client_socket,const char * params
     sprintf(buf,"5 %.4f %.4f\r\n",x, y);
     Send_String(client_socket,buf);
 }
-
+void VisionServerClass::Cmd_Set_Moving_Target_Offset(int client_socket, const char *params)
+{
+    float x,y;
+    sscanf(params,"%f %f",&x,&y);
+    m_MovingTargetX = x;
+    m_MovingTargetY = y;
+}
 void VisionServerClass::Cmd_Equalize_Image(int client_socket,const char *params)
 {
     int value;

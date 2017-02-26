@@ -143,6 +143,8 @@ public:
     void Get_Image(unsigned char ** data, unsigned int * byte_count,int quality);
     float Get_Time_Elapsed_Since_Last_Frame_Get() { return m_TimeElapsedSinceLastFrameGet; }
     void Set_Equalize_Image(bool eq) { m_EqualizeImage = eq; }
+    void Set_Moving_Target_X(float x) { m_MovingTargetX = x; }
+    void Set_Moving_Target_Y(float y) { m_MovingTargetY = y; }
 
    static void* ProcessThread2(void* arg);
 protected:
@@ -158,6 +160,13 @@ protected:
 
     void Build_Img_Front(cv::Mat &Output);
     void Build_Img_Back(cv::Mat &Output);
+
+
+    void draw_rotated_rect(cv::Mat& image, cv::RotatedRect rRect, cv::Scalar color = cv::Scalar(255.0, 255.0, 255.0) );
+    void draw_cross_hair(cv::Mat& image,float cx, float cy,int len,int thick);
+    void draw_aim_line(cv::Mat& image,float cx);
+    void draw_moving_target_aim_line(cv::Mat& image,float cx,float X_Offset,float Y_Offset);
+    void draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar);
 
     cv::VideoCapture * m_VideoCap;
     cv::Mat m_Img;
@@ -193,4 +202,6 @@ protected:
     float m_FPS;
     bool m_EqualizeImage;
 
+    float m_MovingTargetX;
+    float m_MovingTargetY;
 };
