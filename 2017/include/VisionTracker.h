@@ -38,7 +38,8 @@ class DriverCamClass
         {
             m_VideoCap2->set(cv::CAP_PROP_FRAME_WIDTH,320);
             m_VideoCap2->set(cv::CAP_PROP_FRAME_HEIGHT,240);
-            m_VideoCap2->set(cv::CAP_PROP_FPS, 15);
+            m_VideoCap2->set(cv::CAP_PROP_FPS, 30);
+            //m_VideoCap2->set(cv::CV_CAP_PROP_BUFFERSIZE,1);
         }
 
         m_Img3ReadPtr = &m_Img3A;
@@ -49,7 +50,8 @@ class DriverCamClass
         {
             m_VideoCap3->set(cv::CAP_PROP_FRAME_WIDTH,320);
             m_VideoCap3->set(cv::CAP_PROP_FRAME_HEIGHT,240);
-            m_VideoCap3->set(cv::CAP_PROP_FPS, 15);
+            m_VideoCap3->set(cv::CAP_PROP_FPS, 30);
+            //m_VideoCap2->set(cv::CV_CAP_PROP_BUFFERSIZE,1);
         }
     }
     static void GetSecondaryImg(cv::Mat& FillThis)
@@ -67,7 +69,14 @@ class DriverCamClass
         if(m_NewThirdImg)
         {
             pthread_mutex_lock(&FRAMELOCKER);
-            FillThis =  *m_Img3ReadPtr;
+
+            // flip the third image
+            #define FLIP_X 0
+            #define FLIP_Y 1
+            static cv::Mat imgtmp;
+            cv::flip(*m_Img3ReadPtr,imgtmp,FLIP_X);
+            cv::flip(imgtmp,FillThis,FLIP_Y);
+
             m_NewThirdImg = false;
             pthread_mutex_unlock(&FRAMELOCKER);
         }
@@ -104,7 +113,7 @@ class DriverCamClass
         while(1)
         {
             Capture();
-            usleep(100000); //.1s
+            usleep(1000); //.1s
         }
         return NULL;
     }

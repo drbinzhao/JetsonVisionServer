@@ -75,7 +75,7 @@ inline void VisionTrackerClass::draw_moving_target_aim_line(cv::Mat& image,float
     const float FOV = 75.0f;
     const int linetrim = 50;
 
-    float noffset = 0.5f + X_Offset/(0.5*FOV);
+    float noffset = X_Offset/(0.5*FOV);
     float ncx = Pixel_X_To_Normalized_X(cx);
     float cxfinal = Normalized_X_To_Pixel_X(ncx+noffset);
 
@@ -83,8 +83,12 @@ inline void VisionTrackerClass::draw_moving_target_aim_line(cv::Mat& image,float
 
 
     char buffer[128];
-    sprintf(buffer, "RPM: %.0f",m_MovingTargetY);
-    cv::putText(image, buffer, cv::Point(0, image.rows - 15), cv::FONT_HERSHEY_SIMPLEX, 0.4,cv::Scalar(200.0,200.0,255.0),1);
+    sprintf(buffer, "dRPM: %.0f",m_MovingTargetY);
+    cv::putText(image, buffer, cv::Point(0, image.rows - 20), cv::FONT_HERSHEY_SIMPLEX, 0.5,cv::Scalar(200.0,200.0,255.0),2);
+
+    sprintf(buffer, "dAngle: %.0f",m_MovingTargetX);
+    cv::putText(image, buffer, cv::Point(0, image.rows - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5,cv::Scalar(200.0,200.0,255.0),2);
+
 }
 inline void VisionTrackerClass::draw_calibration_range(cv::Mat& image,float cxnear, float cxfar, float cynear,float cyfar)
 {
@@ -156,8 +160,8 @@ void VisionTrackerClass::Init()
 
     m_VideoCap->set(cv::CAP_PROP_FRAME_WIDTH,m_ResolutionW);
     m_VideoCap->set(cv::CAP_PROP_FRAME_HEIGHT,m_ResolutionH);
-    m_VideoCap->set(cv::CAP_PROP_FPS, 125);
-
+    m_VideoCap->set(cv::CAP_PROP_FPS, 150);
+    //m_VideoCap->set(cv::CAP_PROP_BUFFERSIZE,1);
 
     // Store off the actual resolution the camera is running at
     m_ResolutionW = m_VideoCap->get(cv::CAP_PROP_FRAME_WIDTH);
@@ -275,14 +279,17 @@ void VisionTrackerClass::Process()
                     //convexity will be 1.0 for a convex shape and very low for a concave shape
                     float convexity = area / convex_area;
 
-                    if((area > 10.0f/(320.0f*240.0f)) /*&& (convexity < 0.5f)*/)
+                    cv::Rect bounding_rect = cv::boundingRect(m_Contours[i]);
+                    float aspect_ratio = (float)bounding_rect.width/(float)bounding_rect.height;
+
+                    if((area > 10.0f/(320.0f*240.0f))&&(aspect_ratio > 1.0f) /*&& (convexity < 0.5f)*/)
                     {
                         // If we had a good target last frame, slightly prefer to aim at it...
                         if ((m_TargetX != INVALID_TARGET) && (m_TargetY != INVALID_TARGET))
                         {
                             cv::RotatedRect candidate_rect = cv::minAreaRect(m_Contours[i]);
                             float center_x = Pixel_X_To_Normalized_X(candidate_rect.center.x);
-                            float center_y = Pixel_Y_To_Normalized_Y(candidate_rect.center.y);
+                            float center_y = Pixel_Y_To_Normalized_Y(candidate_rect.center.y + (-0.5f * candidate_rect.size.height));
                             float delta_x = center_x - m_TargetX;
                             float delta_y = center_y - m_TargetY;
                             float dist = sqrt((delta_x*delta_x) + (delta_y * delta_y));
@@ -308,8 +315,17 @@ void VisionTrackerClass::Process()
                 if (best_contour != -1)
                 {
                     cv::RotatedRect rect = cv::minAreaRect(m_Contours[best_contour]);
+
+                    // use the dimension of the rectangle to try to target
+                    // the top edge of the rect.  This handles the cases where
+                    // the two vision targets sometimes merge and sometimes dont
+                    float h = rect.size.height;
+                    if (h > rect.size.width)
+                    {
+                       h = rect.size.width;  // in this case, width is actually "height"
+                    }
                     float target_pixel_x = rect.center.x;
-                    float target_pixel_y = rect.center.y;
+                    float target_pixel_y = rect.center.y - 0.5f*h;
                     float target_pixel_area = rect.size.area();
 
                     // compute the normalized target position (resolution independent)
@@ -388,7 +404,7 @@ void VisionTrackerClass::Process()
 void VisionTrackerClass::Print_FPS_On_Image(cv::Mat & img)
 {
     char buffer[128];
-    sprintf(buffer, "fps: %f",m_FPS);
+    sprintf(buffer, "fps: %.0f",m_FPS);
     cv::putText(img, buffer, cv::Point(0, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5,cv::Scalar(0,255,0),2);
 }
 
